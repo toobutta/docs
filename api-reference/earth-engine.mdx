@@ -1,0 +1,323 @@
+---
+title: "Earth Engine API"
+description: "Trigger insolation, NDVI, impervious surface, and DEM analyses"
+---
+
+## Overview
+
+The **Earth Engine API** triggers on-demand geospatial analyses using Google Earth Engine layers: solar insolation, vegetation (NDVI), impervious surface percentage, and DEM-based risk indices.
+
+## Endpoint
+
+```
+POST /v1/earthengine.task
+```
+
+## Trigger Analysis
+
+### Request Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `task_id` | enum | yes | Analysis type (see table below) |
+| `polygon_id` | string | yes | Polygon/parcel identifier |
+| `time_from` | string | no | Start date (ISO 8601) for time-series tasks |
+| `time_to` | string | no | End date (ISO 8601) for time-series tasks |
+
+### Available Tasks
+
+| Task ID | Description | Typical Runtime |
+|---------|-------------|-----------------|
+| `insolation_roof` | Annual solar radiation (kWh/m²/year) | 10-30 sec |
+| `impervious_pct` | Impervious surface percentage | 5-15 sec |
+| `ndvi_shade` | Vegetation/shade index (0-1) | 10-20 sec |
+| `dem_flood_index` | Flood risk from DEM/drainage | 15-40 sec |
+| `wildfire_defensible_space` | Defensible space score (vegetation clearance) | 10-30 sec |
+
+### Example: Solar Insolation
+
+```bash
+curl -X POST https://api.geointel.example.com/v1/earthengine.task \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task_id": "insolation_roof",
+    "polygon_id": "PARCEL-441"
+  }'
+```
+
+**Response:**
+```json
+{
+  "job_id": "ee-task-20251106-001",
+  "task_id": "insolation_roof",
+  "polygon_id": "PARCEL-441",
+  "status": "processing",
+  "eta_seconds": 15,
+  "created_at": "2025-11-06T14:30:00Z"
+}
+```
+
+### Example: Impervious Surface
+
+```bash
+curl -X POST https://api.geointel.example.com/v1/earthengine.task \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task_id": "impervious_pct",
+    "polygon_id": "PARCEL-441"
+  }'
+```
+
+## Check Task Status
+
+```
+GET /v1/earthengine.task/{job_id}
+```
+
+**Response (Processing):**
+```json
+{
+  "job_id": "ee-task-20251106-001",
+  "status": "processing",
+  "progress_pct": 60
+}
+```
+
+**Response (Completed):**
+```json
+{
+  "job_id": "ee-task-20251106-001",
+  "task_id": "insolation_roof",
+  "polygon_id": "PARCEL-441",
+  "status": "completed",
+  "result": {
+    "insolation_annual": 1850.3,
+    "unit": "kWh/m²/year",
+    "quality_score": 0.89,
+    "provenance": {
+      "sources": ["NASA/NREL/NSRDB"],
+      "layer_version": "v3.0.1",
+      "computation_date": "2025-11-06T14:30:25Z"
+    }
+  },
+  "completed_at": "2025-11-06T14:30:25Z"
+}
+```
+
+## Task Results
+
+### Insolation (insolation_roof)
+
+**Output:**
+```json
+{
+  "insolation_annual": 1850.3,
+  "unit": "kWh/m²/year",
+  "quality_score": 0.89,
+  "south_facing_insolation": 2100.5,
+  "shade_adjusted_insolation": 1680.2
+}
+```
+
+**Use Case:** SolarFit scoring, payback estimation
+
+### Impervious Surface (impervious_pct)
+
+**Output:**
+```json
+{
+  "impervious_pct": 72.4,
+  "unit": "percentage",
+  "quality_score": 0.81,
+  "breakdown": {
+    "roof_area_sqft": 2140.5,
+    "driveway_area_sqft": 850.3,
+    "patio_area_sqft": 320.1,
+    "total_parcel_sqft": 4500.0
+  }
+}
+```
+
+**Use Case:** Stormwater compliance, utility fee calculations
+
+### NDVI/Shade (ndvi_shade)
+
+**Output:**
+```json
+{
+  "shade_index": 0.23,
+  "unit": "0-1 (0=full sun, 1=full shade)",
+  "quality_score": 0.77,
+  "ndvi_mean": 0.45,
+  "tree_canopy_pct": 18.3
+}
+```
+
+**Use Case:** Solar shading analysis, vegetation coverage
+
+### DEM Flood Index (dem_flood_index)
+
+**Output:**
+```json
+{
+  "flood_index": 0.34,
+  "unit": "0-1 (0=low risk, 1=high risk)",
+  "quality_score": 0.73,
+  "elevation_m": 285.4,
+  "slope_degrees": 2.1,
+  "flow_accumulation": 127
+}
+```
+
+**Use Case:** Insurance underwriting, flood zone verification
+
+### Wildfire Defensible Space (wildfire_defensible_space)
+
+**Output:**
+```json
+{
+  "defensible_space_score": 0.62,
+  "unit": "0-1 (0=poor, 1=excellent)",
+  "quality_score": 0.79,
+  "vegetation_clearance_ft": 45,
+  "recommended_clearance_ft": 100,
+  "risk_level": "moderate"
+}
+```
+
+**Use Case:** Wildfire insurance, mitigation recommendations
+
+## Batch Processing
+
+For large-scale analysis (1000+ parcels), use the batch endpoint:
+
+```
+POST /v1/earthengine.batch
+```
+
+**Request:**
+```json
+{
+  "task_id": "insolation_roof",
+  "polygon_ids": ["PARCEL-441", "PARCEL-442", "PARCEL-443", ...],
+  "callback_url": "https://api.example.com/webhooks/ee-complete"
+}
+```
+
+**Response:**
+```json
+{
+  "batch_id": "ee-batch-20251106-001",
+  "total_parcels": 5000,
+  "estimated_duration_min": 45,
+  "status": "queued"
+}
+```
+
+## Error Handling
+
+### Polygon Not Found (404)
+
+```json
+{
+  "error": {
+    "code": "POLYGON_NOT_FOUND",
+    "message": "Polygon PARCEL-999 does not exist"
+  }
+}
+```
+
+### Task Timeout (500)
+
+```json
+{
+  "error": {
+    "code": "TASK_TIMEOUT",
+    "message": "Earth Engine task exceeded 120 second timeout",
+    "details": {
+      "retry_recommended": true
+    }
+  }
+}
+```
+
+## SDK Examples
+
+### Python
+
+```python
+from geointel import Client
+
+client = Client(client_id="...", client_secret="...")
+
+# Trigger insolation analysis
+job = client.earthengine.task(
+    task_id="insolation_roof",
+    polygon_id="PARCEL-441"
+)
+
+print(f"Job created: {job.job_id}")
+
+# Wait for completion (blocking)
+result = client.earthengine.wait_for_task(job.job_id)
+print(f"Insolation: {result.insolation_annual} kWh/m²/year")
+```
+
+### Node.js
+
+```javascript
+const { Client } = require('@geointel/sdk');
+
+const client = new Client({ clientId: '...', clientSecret: '...' });
+
+// Trigger impervious surface analysis
+const job = await client.earthEngine.task({
+  taskId: 'impervious_pct',
+  polygonId: 'PARCEL-441'
+});
+
+// Wait for result
+const result = await client.earthEngine.waitForTask(job.jobId);
+console.log(`Impervious: ${result.imperviousPct}%`);
+```
+
+## Rate Limits
+
+| Tier | Tasks per Minute | Concurrent Tasks |
+|------|------------------|------------------|
+| Starter | 10 | 5 |
+| Growth | 60 | 20 |
+| Enterprise | 300 | 100 |
+
+## Compliance
+
+**Data Sources:**
+- NASA/NREL NSRDB (insolation)
+- USGS Landsat/Sentinel-2 (NDVI)
+- NLCD (impervious surfaces)
+- SRTM DEM (elevation/slope)
+
+**Licensing:**
+- All sources are public domain or licensed for commercial use
+- Attribution provided in `provenance.sources`
+
+**Restrictions:**
+- Comply with Earth Engine Terms of Service
+- No resale of raw Earth Engine layers
+- Attribution required for public-facing reports
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="SolarFit Guide" icon="solar-panel" href="/products/solarfit">
+    Learn about solar suitability scoring
+  </Card>
+  <Card title="HomeScope Guide" icon="house" href="/products/homescope">
+    Understand parcel-level analytics
+  </Card>
+  <Card title="Data Licensing" icon="scale-balanced" href="/compliance/licensing">
+    Review data source licenses
+  </Card>
+</CardGroup>

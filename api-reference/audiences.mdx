@@ -1,0 +1,347 @@
+---
+title: "Audiences API"
+description: "Export filtered audiences to advertising platforms"
+---
+
+## Overview
+
+The **Audiences API** generates filtered, hashed audience exports for advertising platforms (Google Ads Customer Match, DV360, CTV, etc.) based on property attributes and behavioral signals.
+
+## Endpoint
+
+```
+POST /v1/audiences.export
+```
+
+## Create Audience Export
+
+### Request Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | yes | Audience name (max 100 chars) |
+| `filters` | object | yes | Property/metric filters |
+| `destination` | enum | yes | Export destination |
+| `notes` | string | no | Optional notes (max 500 chars) |
+
+### Filters Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `south_facing_area_gt` | float | South-facing roof area > N sq ft |
+| `south_facing_area_lt` | float | South-facing roof area < N sq ft |
+| `roof_age_band_gte` | int | Roof age ≥ N years |
+| `roof_condition_lt` | float | Roof condition < N (0-1) |
+| `solar_score_gt` | float | Solar score > N (0-1) |
+| `shade_index_lt` | float | Shade index < N (0-1) |
+| `utility_rebate_eligible` | boolean | Utility rebate eligibility |
+| `driveway_condition_lt` | float | Driveway condition < N (0-1) |
+| `driveway_area_gt` | float | Driveway area > N sq ft |
+| `impervious_pct_gt` | float | Impervious % > N |
+| `polygon_ids` | array[string] | Specific polygon IDs |
+| `within_polygon` | GeoJSON | Geo-fence (e.g., service area) |
+
+### Destination Options
+
+| Destination | Description |
+|-------------|-------------|
+| `gads_customer_match` | Google Ads Customer Match (hashed emails/addresses) |
+| `dv360` | Display & Video 360 |
+| `ctv` | Connected TV platforms |
+| `s3_gcs` | S3/GCS bucket (CSV export) |
+
+### Example: Solar Lead Export
+
+```bash
+curl -X POST https://api.geointel.example.com/v1/audiences.export \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Solar Qualified Leads Nov 2025",
+    "filters": {
+      "south_facing_area_gt": 300,
+      "roof_age_band_gte": 12,
+      "shade_index_lt": 0.3,
+      "utility_rebate_eligible": true
+    },
+    "destination": "gads_customer_match",
+    "notes": "Q4 solar campaign targeting"
+  }'
+```
+
+**Response:**
+```json
+{
+  "job_id": "aud-export-20251106-001",
+  "estimated_count": 8247,
+  "status": "processing",
+  "eta_minutes": 15,
+  "created_at": "2025-11-06T14:30:00Z"
+}
+```
+
+### Example: Roof Replacement Leads
+
+```bash
+curl -X POST https://api.geointel.example.com/v1/audiences.export \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Roof Replacement Leads",
+    "filters": {
+      "roof_condition_lt": 0.6,
+      "roof_age_band_gte": 15,
+      "roof_area_gt": 1500
+    },
+    "destination": "s3_gcs",
+    "notes": "Fall roof campaign"
+  }'
+```
+
+**Response:**
+```json
+{
+  "job_id": "aud-export-20251106-002",
+  "estimated_count": 3421,
+  "status": "processing",
+  "eta_minutes": 8
+}
+```
+
+## Check Export Status
+
+```
+GET /v1/audiences.export/{job_id}
+```
+
+**Response (Processing):**
+```json
+{
+  "job_id": "aud-export-20251106-001",
+  "status": "processing",
+  "progress_pct": 67,
+  "estimated_count": 8247
+}
+```
+
+**Response (Complete):**
+```json
+{
+  "job_id": "aud-export-20251106-001",
+  "status": "completed",
+  "final_count": 8192,
+  "destination": "gads_customer_match",
+  "download_url": "https://api.geointel.example.com/exports/aud-export-20251106-001.csv",
+  "expires_at": "2025-11-13T14:30:00Z",
+  "completed_at": "2025-11-06T14:45:00Z"
+}
+```
+
+## Export Formats
+
+### Google Ads Customer Match
+
+**Format:** SHA-256 hashed emails or mailing addresses
+
+**Example CSV:**
+```csv
+hashed_email,hashed_phone,hashed_address
+5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8,,,
+,+14155551234,,
+,,123 Main St|Atlanta|GA|30301|US
+```
+
+**Upload to Google Ads:**
+1. Navigate to **Tools & Settings > Audience Manager**
+2. Create new **Customer Match** audience
+3. Upload CSV from `download_url`
+
+### S3/GCS Export
+
+**Format:** CSV with parcel attributes
+
+**Example CSV:**
+```csv
+parcel_id,lat,lon,roof_area,south_facing_area,solar_score,roof_age_band
+PARCEL-441,33.7490,-84.3880,2140.5,680.2,0.87,15-20
+PARCEL-442,33.7495,-84.3885,1890.3,520.1,0.79,12-15
+```
+
+**S3 Configuration:**
+- Bucket: `s3://customer-bucket/audiences/`
+- ACL: Bucket owner full control
+- Encryption: AES-256
+
+## Privacy & Compliance
+
+### Hashing
+
+All personally identifiable information (PII) is **SHA-256 hashed** before export:
+
+```python
+import hashlib
+
+def hash_email(email):
+    normalized = email.strip().lower()
+    return hashlib.sha256(normalized.encode()).hexdigest()
+```
+
+### Opt-Out Registry
+
+Audiences automatically exclude parcels/addresses in the **opt-out registry**. Users can request exclusion via:
+
+```
+POST /v1/privacy/opt-out
+{
+  "email": "user@example.com",
+  "address": "123 Main St, Atlanta, GA 30301"
+}
+```
+
+### Retention
+
+- Export jobs expire after **7 days**
+- Download URLs expire after **7 days**
+- Source data retention: **90-365 days** (configurable)
+
+## Use Cases
+
+### 1. Solar Campaign Targeting
+
+**Objective:** Find homes with optimal solar characteristics.
+
+**Filters:**
+```json
+{
+  "south_facing_area_gt": 300,
+  "roof_age_band_gte": 12,
+  "shade_index_lt": 0.3,
+  "solar_score_gt": 0.75,
+  "utility_rebate_eligible": true
+}
+```
+
+**Estimated Reach:** 5,000 - 15,000 households per metro
+
+**ROI:** +20-35% CAC improvement vs. untargeted campaigns
+
+### 2. Roof Replacement Leads
+
+**Objective:** Target homes likely needing roof replacement.
+
+**Filters:**
+```json
+{
+  "roof_condition_lt": 0.6,
+  "roof_age_band_gte": 15,
+  "roof_area_gt": 1500
+}
+```
+
+**Estimated Conversion:** 15-25% higher vs. broad targeting
+
+### 3. Driveway Paving/Seal Coating
+
+**Objective:** Find driveways needing maintenance.
+
+**Filters:**
+```json
+{
+  "driveway_condition_lt": 0.5,
+  "driveway_area_gt": 400,
+  "driveway_material": "asphalt"
+}
+```
+
+### 4. Geo-Fenced Service Area
+
+**Objective:** Target properties within 30-mile service radius.
+
+**Filters:**
+```json
+{
+  "roof_condition_lt": 0.7,
+  "within_polygon": {
+    "type": "Polygon",
+    "coordinates": [ ... ]
+  }
+}
+```
+
+## SDK Examples
+
+### Python
+
+```python
+from geointel import Client
+
+client = Client(client_id="...", client_secret="...")
+
+job = client.audiences.export(
+    name="Solar Qualified Leads Nov 2025",
+    filters={
+        "south_facing_area_gt": 300,
+        "roof_age_band_gte": 12,
+        "shade_index_lt": 0.3,
+        "utility_rebate_eligible": True
+    },
+    destination="gads_customer_match"
+)
+
+print(f"Export job created: {job.job_id}")
+print(f"Estimated count: {job.estimated_count}")
+
+# Poll for completion
+while job.status == "processing":
+    time.sleep(30)
+    job = client.audiences.get_export(job.job_id)
+
+print(f"Export complete: {job.download_url}")
+```
+
+### Node.js
+
+```javascript
+const { Client } = require('@geointel/sdk');
+
+const client = new Client({ clientId: '...', clientSecret: '...' });
+
+const job = await client.audiences.export({
+  name: 'Solar Qualified Leads Nov 2025',
+  filters: {
+    southFacingAreaGt: 300,
+    roofAgeBandGte: 12,
+    shadeIndexLt: 0.3,
+    utilityRebateEligible: true
+  },
+  destination: 'gads_customer_match'
+});
+
+console.log(`Export job: ${job.jobId}, count: ${job.estimatedCount}`);
+
+// Wait for completion
+const completed = await client.audiences.waitForExport(job.jobId);
+console.log(`Download: ${completed.downloadUrl}`);
+```
+
+## Rate Limits
+
+| Tier | Exports per Day | Max Rows per Export |
+|------|----------------|---------------------|
+| Starter | 10 | 10,000 |
+| Growth | 50 | 100,000 |
+| Enterprise | Unlimited | 1,000,000 |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="HomeScope Guide" icon="house" href="/products/homescope">
+    Learn about property metrics
+  </Card>
+  <Card title="Privacy & Compliance" icon="shield-check" href="/compliance/privacy-by-design">
+    Understand privacy safeguards
+  </Card>
+  <Card title="Data Governance" icon="gavel" href="/compliance/data-governance">
+    Review data retention policies
+  </Card>
+</CardGroup>

@@ -1,0 +1,358 @@
+---
+title: "Alerts API"
+description: "Create and manage threshold and anomaly-based alerts"
+---
+
+## Overview
+
+The **Alerts API** allows you to create automated notifications when metrics exceed thresholds or exhibit anomalous behavior. Alerts can be delivered via Slack, Microsoft Teams, webhooks, or email.
+
+## Endpoint
+
+```
+POST /v1/alerts.create
+```
+
+## Create Alert
+
+### Request Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `channel` | enum | yes | Delivery channel: `slack`, `teams`, `webhook`, `email` |
+| `title` | string | yes | Alert title (max 100 chars) |
+| `condition` | object | yes | Alert trigger condition |
+| `payload` | object | yes | Channel-specific delivery config |
+
+### Condition Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | enum | `threshold` or `anomaly` |
+| `site_id` | string | Site identifier |
+| `metric` | string | Metric name (e.g., `queue_len`) |
+| `operator` | enum | `gt`, `gte`, `lt`, `lte`, `eq` (threshold only) |
+| `value` | float | Threshold value (threshold only) |
+| `duration_min` | int | Breach duration required to trigger (optional) |
+| `sensitivity` | float | Anomaly sensitivity 0-1 (anomaly only, default: 0.7) |
+
+### Example: Queue Length Threshold Alert
+
+```bash
+curl -X POST https://api.geointel.example.com/v1/alerts.create \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "channel": "slack",
+    "title": "Drive-Thru Queue Breach",
+    "condition": {
+      "type": "threshold",
+      "site_id": "ATL-CTF-001",
+      "metric": "queue_len",
+      "operator": "gt",
+      "value": 7,
+      "duration_min": 10
+    },
+    "payload": {
+      "webhook_url": "https://hooks.slack.com/services/T00/B00/XXX",
+      "channel": "#ops-alerts"
+    }
+  }'
+```
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "alert_id": "alert-20251106-001",
+  "created_at": "2025-11-06T14:30:00Z"
+}
+```
+
+### Example: Competitor Index Anomaly Alert
+
+```bash
+curl -X POST https://api.geointel.example.com/v1/alerts.create \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "channel": "webhook",
+    "title": "Lunch Index Spike",
+    "condition": {
+      "type": "anomaly",
+      "site_id": "ATL-CTF-001",
+      "metric": "competitor_index",
+      "sensitivity": 0.8
+    },
+    "payload": {
+      "webhook_url": "https://api.example.com/webhooks/alerts"
+    }
+  }'
+```
+
+## Alert Delivery Payloads
+
+### Slack
+
+```json
+{
+  "webhook_url": "https://hooks.slack.com/services/T00/B00/XXX",
+  "channel": "#ops-alerts",
+  "username": "GeoIntel Bot",
+  "icon_emoji": ":bell:"
+}
+```
+
+### Microsoft Teams
+
+```json
+{
+  "webhook_url": "https://outlook.office.com/webhook/XXX"
+}
+```
+
+### Webhook (Custom)
+
+```json
+{
+  "webhook_url": "https://api.example.com/webhooks/alerts",
+  "headers": {
+    "X-Custom-Header": "value"
+  }
+}
+```
+
+### Email
+
+```json
+{
+  "recipients": ["ops@example.com", "manager@example.com"],
+  "subject": "Drive-Thru Alert"
+}
+```
+
+## Alert Notification Format
+
+When an alert triggers, the following payload is sent:
+
+```json
+{
+  "alert_id": "alert-20251106-001",
+  "title": "Drive-Thru Queue Breach",
+  "triggered_at": "2025-11-06T14:45:00Z",
+  "condition": {
+    "type": "threshold",
+    "site_id": "ATL-CTF-001",
+    "metric": "queue_len",
+    "operator": "gt",
+    "value": 7,
+    "current_value": 9,
+    "duration_min": 12
+  },
+  "recommendation": "Add 2 staff; trigger 2-4pm 10% drink promo",
+  "quality_score": 0.79,
+  "provenance": {
+    "sources": ["edge_cam:cam2"],
+    "model_version": "yolo11n-2025.10"
+  }
+}
+```
+
+## List Alerts
+
+```
+GET /v1/alerts?site_id=ATL-CTF-001&status=active
+```
+
+**Response:**
+```json
+{
+  "alerts": [
+    {
+      "alert_id": "alert-20251106-001",
+      "title": "Drive-Thru Queue Breach",
+      "channel": "slack",
+      "status": "active",
+      "created_at": "2025-11-06T14:30:00Z",
+      "last_triggered": "2025-11-06T16:45:00Z",
+      "trigger_count": 3
+    }
+  ]
+}
+```
+
+## Update Alert
+
+```
+PATCH /v1/alerts/{alert_id}
+```
+
+**Example: Change Threshold:**
+```json
+{
+  "condition": {
+    "value": 8  // Increase threshold from 7 to 8
+  }
+}
+```
+
+## Delete Alert
+
+```
+DELETE /v1/alerts/{alert_id}
+```
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "alert_id": "alert-20251106-001",
+  "deleted_at": "2025-11-06T17:00:00Z"
+}
+```
+
+## Alert Types
+
+### 1. Threshold Alerts
+
+Trigger when a metric exceeds a fixed value for a specified duration.
+
+**Use Cases:**
+- Queue length > 7 for 10+ minutes
+- Occupancy < 5 during lunch (11-14:00)
+- Competitor index > 1.3 for 2+ weeks
+
+### 2. Anomaly Alerts
+
+Trigger when a metric deviates significantly from historical patterns using statistical anomaly detection.
+
+**Use Cases:**
+- Unexpected traffic drop (possible outage)
+- Surge in competitor traffic (new promotion?)
+- Unusual dwell time spike (service issue?)
+
+**Sensitivity:**
+- `0.5`: High sensitivity (more false positives)
+- `0.7`: Balanced (default)
+- `0.9`: Low sensitivity (fewer alerts, only major anomalies)
+
+## Example Use Cases
+
+### QSR Operations: Queue Management
+
+**Objective:** Alert when drive-thru queue exceeds 7 vehicles for 10+ minutes.
+
+**Alert Configuration:**
+```json
+{
+  "channel": "slack",
+  "title": "Queue Breach - ATL-CTF-001",
+  "condition": {
+    "type": "threshold",
+    "site_id": "ATL-CTF-001",
+    "metric": "queue_len",
+    "operator": "gt",
+    "value": 7,
+    "duration_min": 10
+  },
+  "payload": {
+    "webhook_url": "https://hooks.slack.com/...",
+    "channel": "#atl-ops"
+  }
+}
+```
+
+### Real Estate: Construction Activity
+
+**Objective:** Alert when construction activity detected at competitor site.
+
+**Alert Configuration:**
+```json
+{
+  "channel": "email",
+  "title": "Construction Detected - Competitor Site",
+  "condition": {
+    "type": "threshold",
+    "polygon_id": "COMPETITOR-ATL-NEW",
+    "metric": "construction_delta",
+    "operator": "gt",
+    "value": 0.3
+  },
+  "payload": {
+    "recipients": ["strategy@example.com"]
+  }
+}
+```
+
+## SDK Examples
+
+### Python
+
+```python
+from geointel import Client
+
+client = Client(client_id="...", client_secret="...")
+
+alert = client.alerts.create(
+    channel="slack",
+    title="Queue Breach - ATL-CTF-001",
+    condition={
+        "type": "threshold",
+        "site_id": "ATL-CTF-001",
+        "metric": "queue_len",
+        "operator": "gt",
+        "value": 7,
+        "duration_min": 10
+    },
+    payload={
+        "webhook_url": "https://hooks.slack.com/...",
+        "channel": "#ops-alerts"
+    }
+)
+
+print(f"Alert created: {alert.alert_id}")
+```
+
+### Node.js
+
+```javascript
+const { Client } = require('@geointel/sdk');
+
+const client = new Client({
+  clientId: '...',
+  clientSecret: '...'
+});
+
+const alert = await client.alerts.create({
+  channel: 'slack',
+  title: 'Queue Breach - ATL-CTF-001',
+  condition: {
+    type: 'threshold',
+    siteId: 'ATL-CTF-001',
+    metric: 'queue_len',
+    operator: 'gt',
+    value: 7,
+    durationMin: 10
+  },
+  payload: {
+    webhookUrl: 'https://hooks.slack.com/...',
+    channel: '#ops-alerts'
+  }
+});
+
+console.log(`Alert created: ${alert.alertId}`);
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Signals Query" icon="chart-line" href="/api-reference/signals-query">
+    Query metrics to inform alert thresholds
+  </Card>
+  <Card title="LotWatch Guide" icon="car" href="/products/lotwatch">
+    Learn about operational metrics
+  </Card>
+  <Card title="Webhook Integration" icon="webhook" href="/api-reference/webhooks">
+    Coming Soon: Custom webhook handlers
+  </Card>
+</CardGroup>

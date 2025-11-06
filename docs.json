@@ -1,68 +1,105 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Geo-Intelligence Platform",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#2563EB",
+    "light": "#3B82F6",
+    "dark": "#1E40AF"
   },
   "favicon": "/favicon.svg",
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Overview",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
               "index",
               "quickstart",
-              "development"
+              "architecture"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
-            ]
-          },
-          {
-            "group": "Writing content",
-            "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "concepts/signals-and-metrics",
+              "concepts/data-model",
+              "concepts/provenance-quality"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Products",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Commercial Intelligence",
             "pages": [
-              "api-reference/introduction"
+              "products/lotwatch",
+              "products/tradezone-ai",
+              "products/geopulse",
+              "products/surgeradar",
+              "products/permitscope"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Residential Intelligence",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "products/homescope",
+              "products/roofiq",
+              "products/solarfit",
+              "products/driveway-pro",
+              "products/stormshield"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Signal API",
+            "pages": [
+              "api-reference/introduction",
+              "api-reference/authentication",
+              "api-reference/signals-query",
+              "api-reference/alerts",
+              "api-reference/audiences",
+              "api-reference/earth-engine",
+              "api-reference/provenance"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Implementation",
+        "groups": [
+          {
+            "group": "Architecture",
+            "pages": [
+              "implementation/edge-processing",
+              "implementation/stream-processing",
+              "implementation/batch-processing",
+              "implementation/storage",
+              "implementation/serving"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/infrastructure",
+              "deployment/edge-devices",
+              "deployment/observability"
+            ]
+          },
+          {
+            "group": "Privacy & Compliance",
+            "pages": [
+              "compliance/privacy-by-design",
+              "compliance/data-governance",
+              "compliance/licensing"
             ]
           }
         ]
@@ -71,19 +108,14 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "API Status",
+          "href": "https://status.example.com",
+          "icon": "signal"
         },
         {
-          "anchor": "Community",
-          "href": "https://mintlify.com/community",
-          "icon": "slack"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "GitHub",
+          "href": "https://github.com",
+          "icon": "github"
         }
       ]
     }
@@ -96,13 +128,13 @@
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "mailto:support@example.com"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "label": "Get Started",
+      "href": "/quickstart"
     }
   },
   "contextual": {
@@ -119,9 +151,7 @@
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com"
     }
   }
 }

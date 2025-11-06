@@ -1,0 +1,43 @@
+---
+title: "SolarFit"
+description: "Solar suitability scoring with insolation and payback estimates"
+---
+
+## Overview
+
+**SolarFit** (part of [HomeScope](/products/homescope)) combines roof geometry from RoofIQ with Google Earth Engine insolation data, shading analysis, and utility rates to produce solar suitability scores and ROI estimates.
+
+## Metrics
+
+| Metric | Description | Unit |
+|--------|-------------|------|
+| `solar_score` | Overall suitability | 0-1 |
+| `insolation_annual` | Solar radiation | kWh/m²/year |
+| `shade_index` | Shading factor | 0-1 (0=full sun) |
+| `payback_estimate` | Simple payback period | years |
+| `utility_rebate_eligible` | Rebate program eligibility | boolean |
+
+## Calculation
+
+```
+solar_score = f(insolation_annual, shade_index, roof_area, roof_slope)
+payback_estimate = (system_cost - rebates) / (annual_production × electricity_rate)
+```
+
+## Example
+
+```json
+{
+  "parcel_id": "PARCEL-441",
+  "solarfit": {
+    "solar_score": 0.87,
+    "insolation_annual": 1850,
+    "shade_index": 0.12,
+    "payback_estimate": 7.2,
+    "utility_rebate_eligible": true,
+    "estimated_annual_savings": 1240
+  }
+}
+```
+
+See [HomeScope documentation](/products/homescope) for API integration.

@@ -1,0 +1,345 @@
+---
+title: "Provenance & Quality"
+description: "Understanding quality scores, confidence intervals, and source attribution"
+---
+
+## Overview
+
+Every metric in the Geo-Intelligence Platform includes **provenance** (source attribution, model lineage) and a **quality score** (0-1 confidence rating). This ensures transparency, compliance, and decision-grade intelligence.
+
+## Quality Score (0-1)
+
+The **quality_score** reflects overall confidence in the metric value:
+
+| Range | Tier | Interpretation |
+|-------|------|----------------|
+| 0.85 - 1.0 | Tier 1 | High confidence - safe for automated decisions |
+| 0.70 - 0.84 | Tier 2 | Good confidence - suitable for operational use |
+| 0.50 - 0.69 | Tier 3 | Moderate confidence - review before critical actions |
+| 0.00 - 0.49 | Tier 4 | Low confidence - flag for manual review |
+
+**Target:** ≥75% of metrics should achieve **Tier 1 or Tier 2** quality.
+
+## Quality Components
+
+Quality score is computed from multiple factors:
+
+### 1. Data Completeness (0-1)
+
+Percentage of expected data points present:
+
+```
+data_completeness = actual_samples / expected_samples
+```
+
+**Example (Edge Camera):**
+- Expected: 60 frames (1 per second for 1 minute)
+- Actual: 58 frames (2 frames dropped due to network lag)
+- `data_completeness = 58 / 60 = 0.967`
+
+### 2. Model Confidence (0-1)
+
+ML model's confidence in its prediction:
+
+**YOLO Detection Confidence:**
+```
+model_confidence = mean([bbox.confidence for bbox in detections])
+```
+
+**Segmentation IoU:**
+```
+model_confidence = intersection_over_union(pred_mask, ground_truth_mask)
+```
+
+### 3. Environmental Factors (0-1)
+
+Adjustments for environmental conditions:
+
+| Factor | Impact |
+|--------|--------|
+| Low light (dusk/dawn) | -0.1 to -0.2 |
+| High cloud cover (>20%) | -0.15 to -0.3 |
+| Occlusion/obstruction | -0.2 to -0.4 |
+| Baseline image age (>1 year) | -0.05 to -0.15 |
+
+### 4. Calibration Status (0-1)
+
+For edge cameras:
+
+```
+calibration_factor = 1.0 if days_since_calibration < 30
+                    0.95 if days_since_calibration < 60
+                    0.90 if days_since_calibration < 90
+                    0.80 otherwise
+```
+
+### Combined Quality Score
+
+```python
+quality_score = (
+    data_completeness * 0.30 +
+    model_confidence * 0.40 +
+    environmental_factor * 0.20 +
+    calibration_factor * 0.10
+)
+```
+
+## Confidence Intervals
+
+High-quality metrics include **95% confidence intervals**:
+
+```json
+{
+  "value": 18.4,
+  "quality_score": 0.82,
+  "confidence_interval": [16.8, 20.0]
+}
+```
+
+**Interpretation:** We are 95% confident the true value is between 16.8 and 20.0.
+
+**Calculation (Normal Distribution):**
+```python
+import numpy as np
+
+mean = 18.4
+std_dev = 1.6  # Estimated from historical variance
+
+ci_lower = mean - 1.96 * std_dev  # 16.8
+ci_upper = mean + 1.96 * std_dev  # 20.0
+```
+
+## Quality Flags
+
+When quality issues are detected, **flags** are attached to the provenance record:
+
+| Flag | Description | Typical Impact |
+|------|-------------|----------------|
+| `baseline_image_older_than_1yr` | Change detection baseline >1 year | -0.10 quality |
+| `high_cloud_cover` | Satellite cloud cover >20% | -0.20 quality |
+| `low_light_conditions` | Camera footage in low-light | -0.15 quality |
+| `occlusion_detected` | Partial view obstruction | -0.30 quality |
+| `calibration_overdue` | Camera calibration >90 days | -0.10 quality |
+| `model_drift_warning` | Model performance drift detected | -0.15 quality |
+| `data_gap` | Missing >10% of expected samples | -0.20 quality |
+
+**Example with Flags:**
+```json
+{
+  "quality_score": 0.67,
+  "flags": ["low_light_conditions", "calibration_overdue"]
+}
+```
+
+## Provenance Tracking
+
+Every metric includes full **provenance** for audit and compliance:
+
+```json
+{
+  "provenance": {
+    "sources": [
+      {
+        "type": "edge_camera",
+        "id": "edge_cam:cam1",
+        "location": "Parking Lot - South",
+        "installed_date": "2025-09-15"
+      }
+    ],
+    "imagery_license": {
+      "license_id": "LIC-PLANET-2025-001",
+      "provider": "Planet Labs",
+      "acquisition_date": "2025-11-01",
+      "terms_url": "https://www.planet.com/terms/"
+    },
+    "model": {
+      "name": "YOLO11n",
+      "version": "2025.10",
+      "framework": "PyTorch 2.1",
+      "validation_accuracy": 0.89
+    },
+    "processing": {
+      "method": "edge_cv",
+      "inference_time_ms": 42,
+      "redaction_applied": true
+    }
+  }
+}
+```
+
+## Quality Monitoring
+
+### Real-Time Dashboards
+
+**Grafana Panels:**
+- Average quality score by site (last 24 hours)
+- Low-quality metric count by metric type
+- Quality score distribution (histogram)
+
+**Example Query (ClickHouse):**
+```sql
+SELECT
+  site_id,
+  metric,
+  AVG(quality_score) AS avg_quality,
+  COUNT(*) AS total_samples,
+  SUM(CASE WHEN quality_score < 0.6 THEN 1 ELSE 0 END) AS low_quality_count
+FROM signals_timeseries
+WHERE ts >= NOW() - INTERVAL 24 HOUR
+GROUP BY site_id, metric
+ORDER BY avg_quality ASC;
+```
+
+### Automated Alerts
+
+**Alert when quality drops below threshold:**
+
+```json
+{
+  "channel": "slack",
+  "title": "Low Quality Alert - ATL-CTF-001",
+  "condition": {
+    "type": "threshold",
+    "site_id": "ATL-CTF-001",
+    "metric": "occupancy",
+    "quality_score_lt": 0.6,
+    "duration_min": 30
+  }
+}
+```
+
+### Weekly Quality Reports
+
+**Email summary of quality trends:**
+
+```python
+# Generate weekly quality report
+sites_with_quality_issues = db.query("""
+    SELECT site_id, metric, AVG(quality_score) AS avg_quality
+    FROM signals_timeseries
+    WHERE ts >= NOW() - INTERVAL 7 DAY
+    GROUP BY site_id, metric
+    HAVING avg_quality < 0.7
+    ORDER BY avg_quality ASC
+""")
+
+send_email(
+    to="ops@example.com",
+    subject="Weekly Quality Report",
+    body=render_template("quality_report.html", data=sites_with_quality_issues)
+)
+```
+
+## Model Drift Detection
+
+Use **Evidently** to detect model drift:
+
+```python
+from evidently.report import Report
+from evidently.metrics import DataDriftMetric, ModelPerformanceMetric
+
+report = Report(metrics=[
+    DataDriftMetric(),
+    ModelPerformanceMetric()
+])
+
+report.run(
+    reference_data=baseline_df,  # Training data
+    current_data=production_df    # Last 7 days production
+)
+
+if report.as_dict()['metrics']['drift_detected']:
+    # Trigger retraining pipeline
+    trigger_model_retraining()
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Filter by Quality Score">
+    For automated decisions, use only **Tier 1** (≥0.85) or **Tier 2** (≥0.70) metrics:
+
+    ```python
+    high_quality_metrics = [
+        row for row in response.rows if row.quality_score >= 0.70
+    ]
+    ```
+  </Accordion>
+
+  <Accordion title="Review Quality Flags">
+    Before critical actions, check for quality flags:
+
+    ```python
+    provenance = client.provenance.get(metric.metric_id)
+    if 'occlusion_detected' in provenance.quality.flags:
+        print("Warning: Occlusion detected, manual review recommended")
+    ```
+  </Accordion>
+
+  <Accordion title="Use Confidence Intervals">
+    For forecasting and predictions, use confidence intervals:
+
+    ```python
+    if metric.confidence_interval[1] < threshold:
+        # Even upper bound is below threshold
+        trigger_action()
+    ```
+  </Accordion>
+
+  <Accordion title="Monitor Quality Trends">
+    Set up weekly quality reports to catch degradation early:
+
+    ```python
+    if avg_quality_this_week < avg_quality_last_week - 0.1:
+        alert_ops_team("Quality degradation detected")
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Example: Quality-Aware Decision Logic
+
+```python
+from geointel import Client
+
+client = Client(client_id="...", client_secret="...")
+
+# Query queue length
+response = client.signals.query(
+    site_id="ATL-CTF-001",
+    metrics=["queue_len"],
+    time_from="2025-11-06T11:00:00Z",
+    time_to="2025-11-06T12:00:00Z"
+)
+
+# Filter high-quality metrics
+high_quality = [row for row in response.rows if row.quality_score >= 0.75]
+
+if len(high_quality) == 0:
+    print("Insufficient high-quality data, manual review required")
+else:
+    avg_queue_len = sum(row.value for row in high_quality) / len(high_quality)
+
+    if avg_queue_len > 7:
+        # Check confidence interval
+        provenance = client.provenance.get(high_quality[0].metric_id)
+        ci = provenance.quality.confidence_interval
+
+        if ci[0] > 7:  # Even lower bound exceeds threshold
+            trigger_alert("Queue length breach confirmed (high confidence)")
+        else:
+            print(f"Borderline queue length: {avg_queue_len} (CI: {ci})")
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Signals & Metrics" icon="chart-line" href="/concepts/signals-and-metrics">
+    Learn about metric types and cadence
+  </Card>
+  <Card title="Provenance API" icon="fingerprint" href="/api-reference/provenance">
+    Fetch detailed provenance records
+  </Card>
+  <Card title="Observability" icon="chart-mixed" href="/deployment/observability">
+    Set up quality monitoring dashboards
+  </Card>
+</CardGroup>

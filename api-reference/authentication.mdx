@@ -1,0 +1,190 @@
+---
+title: "Authentication"
+description: "OAuth 2.0 authentication with client credentials flow"
+---
+
+## Overview
+
+The Geo-Intelligence Platform uses **OAuth 2.0 with the Client Credentials grant** for server-to-server API authentication.
+
+## Obtaining Credentials
+
+Contact your account manager or use the self-service portal to generate:
+
+- **Client ID:** Public identifier for your application
+- **Client Secret:** Confidential secret (store securely, never commit to version control)
+
+## Token Request
+
+**Endpoint:**
+```
+POST https://auth.geointel.example.com/oauth/token
+```
+
+**Headers:**
+```
+Content-Type: application/x-www-form-urlencoded
+```
+
+**Body:**
+```
+grant_type=client_credentials
+client_id=YOUR_CLIENT_ID
+client_secret=YOUR_CLIENT_SECRET
+scope=signals:read alerts:write audiences:write
+```
+
+**Example:**
+```bash
+curl -X POST https://auth.geointel.example.com/oauth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=abc123" \
+  -d "client_secret=secret456" \
+  -d "scope=signals:read alerts:write"
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "scope": "signals:read alerts:write"
+}
+```
+
+## Using the Access Token
+
+Include the token in the `Authorization` header for all API requests:
+
+```bash
+curl -X POST https://api.geointel.example.com/v1/signals:query \
+  -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -H "Content-Type: application/json" \
+  -d '{ "site_id": "ATL-001", ... }'
+```
+
+## Token Expiration
+
+Tokens expire after **3600 seconds (1 hour)**. Your application should:
+
+1. Cache the token and reuse it until expiration
+2. Request a new token when `expires_in` is reached
+3. Handle `401 Unauthorized` responses by refreshing the token
+
+**Python Example:**
+```python
+import time
+import requests
+
+class TokenManager:
+    def __init__(self, client_id, client_secret):
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.token = None
+        self.expires_at = 0
+
+    def get_token(self):
+        if time.time() >= self.expires_at - 60:  # Refresh 1 min early
+            self.refresh_token()
+        return self.token
+
+    def refresh_token(self):
+        response = requests.post(
+            "https://auth.geointel.example.com/oauth/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": self.client_id,
+                "client_secret": self.client_secret
+            }
+        )
+        data = response.json()
+        self.token = data["access_token"]
+        self.expires_at = time.time() + data["expires_in"]
+```
+
+## Scopes
+
+| Scope | Description |
+|-------|-------------|
+| `signals:read` | Query time-series metrics |
+| `signals:write` | Ingest custom signals (advanced) |
+| `alerts:read` | List and view alerts |
+| `alerts:write` | Create and manage alerts |
+| `audiences:read` | View audience exports |
+| `audiences:write` | Create audience export jobs |
+| `earthengine:read` | View Earth Engine task results |
+| `earthengine:write` | Trigger Earth Engine analyses |
+| `admin:*` | Full administrative access |
+
+**Request Multiple Scopes:**
+```
+scope=signals:read alerts:write audiences:write
+```
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Store Secrets Securely">
+    - Use environment variables or secret managers (AWS Secrets Manager, HashiCorp Vault)
+    - Never commit secrets to version control
+    - Rotate secrets regularly (every 90 days)
+  </Accordion>
+  <Accordion title="Use HTTPS Only">
+    - All API requests must use HTTPS (TLS 1.3)
+    - Certificate pinning recommended for high-security deployments
+  </Accordion>
+  <Accordion title="Implement Token Caching">
+    - Cache tokens in memory (not disk) to avoid repeated auth requests
+    - Respect `expires_in` to minimize token refreshes
+  </Accordion>
+  <Accordion title="Monitor API Usage">
+    - Track API calls per client_id
+    - Alert on anomalous usage patterns
+    - Rotate credentials if compromise suspected
+  </Accordion>
+</AccordionGroup>
+
+## Revoking Tokens
+
+Tokens are short-lived (1 hour) and cannot be manually revoked. To invalidate access:
+
+1. Rotate your client_secret in the self-service portal
+2. Update your application configuration
+3. Old tokens will expire within 1 hour
+
+## SSO Integration (Enterprise)
+
+Enterprise customers can use **OIDC (OpenID Connect)** to federate authentication with their identity provider (Okta, Azure AD, etc.).
+
+Contact support for SSO enablement.
+
+## Testing Authentication
+
+**Valid Token Test:**
+```bash
+curl -X GET https://api.geointel.example.com/v1/auth/verify \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Response:**
+```json
+{
+  "valid": true,
+  "client_id": "abc123",
+  "scopes": ["signals:read", "alerts:write"],
+  "expires_at": "2025-11-06T15:30:00Z"
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Query Signals" icon="chart-line" href="/api-reference/signals-query">
+    Start querying time-series metrics
+  </Card>
+  <Card title="API Introduction" icon="book" href="/api-reference/introduction">
+    Review API overview and quickstart
+  </Card>
+</CardGroup>

@@ -1,0 +1,39 @@
+---
+title: "TradeZone AI"
+description: "Site selection, cannibalization analysis, and market potential modeling"
+---
+
+## Overview
+
+**TradeZone AI** combines real-time traffic data from LotWatch, demographics, competitor locations, and geospatial signals to model trade areas, predict cannibalization, and score potential new sites.
+
+## Key Features
+
+- **Cannibalization Risk:** Estimate sales transfer between existing and proposed sites
+- **Market Potential:** Predict revenue for greenfield locations
+- **Drive-Time Isochrones:** Model realistic trade area boundaries
+- **Competitive Overlap:** Quantify competitor proximity impact
+
+## Metrics
+
+| Metric | Description |
+|--------|-------------|
+| `cannibalization_pct` | % of proposed site revenue from existing locations |
+| `market_potential_score` | 0-1 score for new site viability |
+| `drive_time_coverage` | Population within 5/10/15 min drive |
+| `competitor_density` | Competitors per square mile |
+
+## API Example
+
+```bash
+POST /tradezone.analyze
+{
+  "proposed_site": {"lat": 33.7490, "lon": -84.3880},
+  "existing_sites": ["ATL-001", "ATL-002"],
+  "drive_time_min": [5, 10, 15]
+}
+```
+
+<Card title="Full Documentation" icon="book" href="/api-reference/tradezone">
+  Coming Soon
+</Card>

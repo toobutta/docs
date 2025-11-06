@@ -1,44 +1,101 @@
-# Mintlify Starter Kit
+# Geo-Intelligence Platform Documentation
 
-Use the starter kit to get your docs deployed and ready to customize.
+Comprehensive documentation for the Geo-Intelligence Platform - decision-grade intelligence from computer vision, satellite imagery, and location data.
 
-Click the green **Use this template** button at the top of this repo to copy the Mintlify starter kit. The starter kit contains examples with
+## Overview
 
-- Guide pages
-- Navigation
-- Customizations
-- API reference pages
-- Use of popular components
+This repository contains the complete documentation for the Geo-Intelligence Platform MVP, including:
 
-**[Follow the full quickstart guide](https://starter.mintlify.com/quickstart)**
+- **Product Documentation:** LotWatch, HomeScope, TradeZone AI, GeoPulse, SurgeRadar, PermitScope
+- **API Reference:** REST API for signals, alerts, audiences, Earth Engine, and provenance
+- **Architecture Guides:** Edge, stream, and batch processing components
+- **Concept Guides:** Signals, data model, provenance & quality
+- **MVP Roadmap:** 0-90 day implementation plan
 
-## Development
+## Quick Links
 
-Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview your documentation changes locally. To install, use the following command:
+- **[Platform Overview](./index.mdx)** - Vision, products, and capabilities
+- **[Quickstart Guide](./quickstart.mdx)** - Get started in 30 minutes
+- **[Architecture](./architecture.mdx)** - System architecture overview
+- **[MVP Roadmap](./mvp-roadmap.mdx)** - 90-day implementation plan
+- **[API Reference](./api-reference/introduction.mdx)** - REST API documentation
 
-```
+## Core Products
+
+### Commercial Intelligence
+- **[LotWatch](./products/lotwatch.mdx)** - Real-time parking, drive-thru, curbside analytics
+- **[TradeZone AI](./products/tradezone-ai.mdx)** - Site selection and cannibalization
+- **[GeoPulse](./products/geopulse.mdx)** - Construction and change detection
+- **[SurgeRadar](./products/surgeradar.mdx)** - Event/weather demand forecasting
+- **[PermitScope](./products/permitscope.mdx)** - Competitor opening early-warning
+
+### Residential Intelligence
+- **[HomeScope](./products/homescope.mdx)** - Parcel-level property intelligence
+- **[RoofIQ](./products/roofiq.mdx)** - Roof geometry and condition analysis
+- **[SolarFit](./products/solarfit.mdx)** - Solar suitability scoring
+- **[DrivewayPro](./products/driveway-pro.mdx)** - Driveway material and condition
+- **[StormShield](./products/stormshield.mdx)** - Post-storm damage triage
+
+## MVP Scope (0-90 Days)
+
+**Phase 0 Goals:**
+1. LotWatch for 10 QSR pilot sites
+2. HomeScope RoofIQ + SolarFit
+3. Signal API with OAuth 2.0
+4. Threshold alerts (Slack integration)
+5. Privacy-by-design (redaction, provenance)
+
+**Success Criteria:**
+- 10 sites live with <10s lag
+- Occupancy accuracy ±8%
+- RoofIQ geometry error <5%
+- Average quality_score ≥0.7
+
+## Technology Stack
+
+- **Edge:** NVIDIA Jetson, YOLO11n, ByteTrack, OpenCV
+- **Stream:** Kafka, Apache Beam/Flink, GStreamer
+- **Batch:** Dagster, Raster-Vision, ChangeFormer, Earth Engine
+- **Storage:** ClickHouse, PostGIS, S3/GCS
+- **Serving:** FastAPI, NVIDIA Triton, Redis
+- **Observability:** Prometheus, Grafana, OpenTelemetry
+
+## Local Development
+
+Install the Mintlify CLI:
+
+```bash
 npm i -g mint
 ```
 
-Run the following command at the root of your documentation, where your `docs.json` is located:
+Run the development server:
 
-```
+```bash
 mint dev
 ```
 
-View your local preview at `http://localhost:3000`.
+View at `http://localhost:3000`.
 
-## Publishing changes
+## Documentation Structure
 
-Install our GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app) to propagate changes from your repo to your deployment. Changes are deployed to production automatically after pushing to the default branch.
+```
+docs/
+├── index.mdx                    # Platform overview
+├── quickstart.mdx               # Getting started guide
+├── architecture.mdx             # Platform architecture
+├── mvp-roadmap.mdx             # MVP implementation plan
+├── products/                    # Product documentation (10 files)
+├── api-reference/              # API reference (7 files)
+├── concepts/                   # Core concepts (3 files)
+└── docs.json                   # Navigation configuration
+```
 
-## Need help?
+## Support
 
-### Troubleshooting
+- **Email:** support@geointel.example.com
+- **API Status:** https://status.geointel.example.com
 
-- If your dev environment isn't running: Run `mint update` to ensure you have the most recent version of the CLI.
-- If a page loads as a 404: Make sure you are running in a folder with a valid `docs.json`.
+## License
 
-### Resources
-- [Mintlify documentation](https://mintlify.com/docs)
-- [Mintlify community](https://mintlify.com/community)
+Documentation: CC BY 4.0
+Platform components: Apache 2.0 / MIT (see individual licenses)
