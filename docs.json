@@ -18,7 +18,15 @@
             "pages": [
               "index",
               "quickstart",
-              "architecture"
+              "architecture",
+              "mvp-roadmap"
+            ]
+          },
+          {
+            "group": "Technical Stack",
+            "pages": [
+              "tech-stack",
+              "map-interface"
             ]
           },
           {
