@@ -100,13 +100,17 @@
               "implementation/stream-processing",
               "implementation/batch-processing",
               "implementation/storage",
-              "implementation/serving"
+              "implementation/serving",
+              "implementation/api-scaffolding"
             ]
           },
           {
             "group": "Deployment",
             "pages": [
               "deployment/infrastructure",
+              "deployment/docker-compose",
+              "deployment/migrations",
+              "deployment/ci-cd",
               "deployment/edge-devices",
               "deployment/observability"
             ]
