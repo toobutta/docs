@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.core.cache import cache
-from app.api.v1 import properties, saved_searches, google_ads, territories, comparison, bulk_import
+from app.api.v1 import properties, saved_searches, google_ads, territories, comparison, bulk_import, analytics
 
 
 @asynccontextmanager
@@ -47,6 +47,7 @@ app.include_router(google_ads.router, prefix=settings.API_V1_STR)
 app.include_router(territories.router, prefix=settings.API_V1_STR)
 app.include_router(comparison.router, prefix=settings.API_V1_STR)
 app.include_router(bulk_import.router, prefix=settings.API_V1_STR)
+app.include_router(analytics.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/")
