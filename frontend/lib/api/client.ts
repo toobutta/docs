@@ -29,7 +29,9 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status
+
+    if (status === 401) {
       // Unauthorized - redirect to login
       if (typeof window !== 'undefined') {
         localStorage.removeItem('auth_token')
@@ -37,14 +39,14 @@ apiClient.interceptors.response.use(
       }
     }
 
-    if (error.response?.status === 403) {
+    if (status === 403) {
       // Forbidden
-      console.error('Access forbidden:', error.response.data)
+      console.error('Access forbidden:', error.response?.data)
     }
 
-    if (error.response?.status >= 500) {
+    if (status && status >= 500) {
       // Server error
-      console.error('Server error:', error.response.data)
+      console.error('Server error:', error.response?.data)
     }
 
     return Promise.reject(error)
