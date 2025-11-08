@@ -1,0 +1,799 @@
+---
+title: "Design System"
+description: "Evoteli UI/UX design system - Components, patterns, and guidelines"
+---
+
+## Overview
+
+The Evoteli Design System provides a comprehensive set of components, patterns, and guidelines for building a modern, AI-centered, and accessible user interface.
+
+**Design Philosophy:**
+- **AI-Centered** - Natural language interactions, predictive suggestions
+- **Map-First** - Geospatial data visualization at the core
+- **Fast & Responsive** - <100ms interactions, optimistic updates
+- **Accessible** - WCAG 2.1 AA compliant
+- **Scalable** - Handles 100k+ properties without performance degradation
+
+---
+
+## Color System
+
+### Primary Palette
+
+Evoteli's brand colors are based on green, representing growth, sustainability, and environmental intelligence.
+
+```css
+/* Primary (Green) */
+--primary-50: #f0fdf4;
+--primary-100: #dcfce7;
+--primary-200: #bbf7d0;
+--primary-300: #86efac;
+--primary-400: #4ade80;  /* Light green */
+--primary-500: #22c55e;
+--primary-600: #16a34a;  /* Brand green */
+--primary-700: #15803d;
+--primary-800: #166534;
+--primary-900: #14532d;  /* Dark green */
+```
+
+### Semantic Colors
+
+```css
+/* Success */
+--success-500: #10b981;
+--success-600: #059669;
+
+/* Warning */
+--warning-500: #f59e0b;
+--warning-600: #d97706;
+
+/* Danger */
+--danger-500: #ef4444;
+--danger-600: #dc2626;
+
+/* Info */
+--info-500: #3b82f6;
+--info-600: #2563eb;
+```
+
+### Neutral Palette
+
+```css
+/* Grays */
+--gray-50: #f9fafb;
+--gray-100: #f3f4f6;
+--gray-200: #e5e7eb;
+--gray-300: #d1d5db;
+--gray-400: #9ca3af;
+--gray-500: #6b7280;
+--gray-600: #4b5563;
+--gray-700: #374151;
+--gray-800: #1f2937;
+--gray-900: #111827;
+```
+
+### Condition Colors (for Property Analysis)
+
+```css
+/* Roof/Property Condition */
+--condition-excellent: #10b981;  /* Green */
+--condition-good: #22c55e;       /* Light green */
+--condition-fair: #f59e0b;       /* Amber */
+--condition-poor: #ef4444;       /* Red */
+--condition-unknown: #6b7280;    /* Gray */
+```
+
+### Color Usage
+
+<Tabs>
+  <Tab title="Backgrounds">
+    ```css
+    --bg-primary: #ffffff;
+    --bg-secondary: #f9fafb;
+    --bg-tertiary: #f3f4f6;
+    --bg-inverse: #111827;
+    ```
+  </Tab>
+
+  <Tab title="Text">
+    ```css
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --text-tertiary: #9ca3af;
+    --text-inverse: #ffffff;
+    --text-link: #2563eb;
+    ```
+  </Tab>
+
+  <Tab title="Borders">
+    ```css
+    --border-default: #e5e7eb;
+    --border-strong: #d1d5db;
+    --border-subtle: #f3f4f6;
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Typography
+
+### Font Families
+
+```css
+/* Primary Sans-Serif */
+--font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+
+/* Monospace (for code, coordinates) */
+--font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+```
+
+### Type Scale
+
+Based on a 1.25 (Major Third) ratio:
+
+```css
+--text-xs: 0.75rem;      /* 12px */
+--text-sm: 0.875rem;     /* 14px */
+--text-base: 1rem;       /* 16px */
+--text-lg: 1.125rem;     /* 18px */
+--text-xl: 1.25rem;      /* 20px */
+--text-2xl: 1.5rem;      /* 24px */
+--text-3xl: 1.875rem;    /* 30px */
+--text-4xl: 2.25rem;     /* 36px */
+--text-5xl: 3rem;        /* 48px */
+```
+
+### Font Weights
+
+```css
+--font-normal: 400;
+--font-medium: 500;
+--font-semibold: 600;
+--font-bold: 700;
+```
+
+### Line Heights
+
+```css
+--leading-none: 1;
+--leading-tight: 1.25;
+--leading-snug: 1.375;
+--leading-normal: 1.5;
+--leading-relaxed: 1.625;
+--leading-loose: 2;
+```
+
+### Typography Examples
+
+<Tabs>
+  <Tab title="Headings">
+    ```tsx
+    <h1 className="text-4xl font-bold text-gray-900">
+      Property Intelligence Platform
+    </h1>
+    <h2 className="text-3xl font-semibold text-gray-900">
+      RoofIQ Analysis
+    </h2>
+    <h3 className="text-2xl font-semibold text-gray-800">
+      Solar Suitability
+    </h3>
+    <h4 className="text-xl font-medium text-gray-800">
+      Key Metrics
+    </h4>
+    ```
+  </Tab>
+
+  <Tab title="Body Text">
+    ```tsx
+    <p className="text-base text-gray-700">
+      This property has excellent solar potential with 2,450 sqft
+      of south-facing roof area.
+    </p>
+    <p className="text-sm text-gray-600">
+      Last updated: November 8, 2025
+    </p>
+    ```
+  </Tab>
+
+  <Tab title="Labels & Captions">
+    ```tsx
+    <label className="text-sm font-medium text-gray-700">
+      Property Type
+    </label>
+    <span className="text-xs text-gray-500">
+      Optional
+    </span>
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Spacing
+
+Based on a **4px base unit** (0.25rem):
+
+```css
+--space-0: 0;
+--space-1: 0.25rem;    /* 4px */
+--space-2: 0.5rem;     /* 8px */
+--space-3: 0.75rem;    /* 12px */
+--space-4: 1rem;       /* 16px */
+--space-5: 1.25rem;    /* 20px */
+--space-6: 1.5rem;     /* 24px */
+--space-8: 2rem;       /* 32px */
+--space-10: 2.5rem;    /* 40px */
+--space-12: 3rem;      /* 48px */
+--space-16: 4rem;      /* 64px */
+--space-20: 5rem;      /* 80px */
+--space-24: 6rem;      /* 96px */
+```
+
+### Spacing Guidelines
+
+**Component Padding:**
+- Small: `p-2` (8px)
+- Medium: `p-4` (16px)
+- Large: `p-6` (24px)
+
+**Component Gaps:**
+- Tight: `gap-2` (8px)
+- Normal: `gap-4` (16px)
+- Loose: `gap-6` (24px)
+
+**Layout Margins:**
+- Page margins: `mx-auto max-w-7xl px-4 sm:px-6 lg:px-8`
+- Section spacing: `space-y-8` or `space-y-12`
+
+---
+
+## Elevation & Shadows
+
+### Shadow Scale
+
+```css
+--shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+--shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+--shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+--shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+--shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+```
+
+### Usage
+
+- **Cards**: `shadow-md`
+- **Dropdowns**: `shadow-lg`
+- **Modals**: `shadow-xl`
+- **Floating panels**: `shadow-2xl`
+
+---
+
+## Border Radius
+
+```css
+--radius-none: 0;
+--radius-sm: 0.125rem;    /* 2px */
+--radius-md: 0.375rem;    /* 6px */
+--radius-lg: 0.5rem;      /* 8px */
+--radius-xl: 0.75rem;     /* 12px */
+--radius-2xl: 1rem;       /* 16px */
+--radius-full: 9999px;    /* Fully rounded */
+```
+
+### Usage
+
+- **Buttons**: `rounded-md` (6px)
+- **Input fields**: `rounded-md` (6px)
+- **Cards**: `rounded-lg` (8px)
+- **Modals**: `rounded-xl` (12px)
+- **Pills/Tags**: `rounded-full`
+
+---
+
+## Animation & Transitions
+
+### Duration
+
+```css
+--duration-fast: 150ms;
+--duration-base: 250ms;
+--duration-slow: 350ms;
+```
+
+### Easing Functions
+
+```css
+--ease-linear: linear;
+--ease-in: cubic-bezier(0.4, 0, 1, 1);
+--ease-out: cubic-bezier(0, 0, 0.2, 1);
+--ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+```
+
+### Common Transitions
+
+```css
+/* Default transition */
+transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+
+/* Color transition */
+transition: color 150ms ease-out, background-color 150ms ease-out;
+
+/* Transform transition */
+transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
+```
+
+### Animation Examples
+
+<Tabs>
+  <Tab title="Fade In">
+    ```tsx
+    <div className="animate-fade-in">
+      Content appears smoothly
+    </div>
+
+    /* CSS */
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .animate-fade-in {
+      animation: fade-in 250ms ease-out;
+    }
+    ```
+  </Tab>
+
+  <Tab title="Slide In">
+    ```tsx
+    <div className="animate-slide-in-right">
+      Panel slides in from right
+    </div>
+
+    /* CSS */
+    @keyframes slide-in-right {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+    .animate-slide-in-right {
+      animation: slide-in-right 350ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    ```
+  </Tab>
+
+  <Tab title="Pulse">
+    ```tsx
+    <div className="animate-pulse">
+      Loading indicator
+    </div>
+
+    /* CSS */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .animate-pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Components
+
+### Buttons
+
+<Tabs>
+  <Tab title="Primary">
+    ```tsx
+    <button className="
+      px-4 py-2
+      bg-primary-600 hover:bg-primary-700
+      text-white font-medium
+      rounded-md
+      shadow-sm
+      transition-colors duration-150
+      focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
+    ">
+      Search Properties
+    </button>
+    ```
+  </Tab>
+
+  <Tab title="Secondary">
+    ```tsx
+    <button className="
+      px-4 py-2
+      bg-white hover:bg-gray-50
+      text-gray-700 font-medium
+      border border-gray-300
+      rounded-md
+      shadow-sm
+      transition-colors duration-150
+    ">
+      Cancel
+    </button>
+    ```
+  </Tab>
+
+  <Tab title="Ghost">
+    ```tsx
+    <button className="
+      px-4 py-2
+      text-gray-700 hover:text-gray-900 font-medium
+      hover:bg-gray-100
+      rounded-md
+      transition-colors duration-150
+    ">
+      View Details
+    </button>
+    ```
+  </Tab>
+
+  <Tab title="Icon">
+    ```tsx
+    <button className="
+      p-2
+      text-gray-500 hover:text-gray-700
+      hover:bg-gray-100
+      rounded-md
+      transition-colors duration-150
+    ">
+      <SearchIcon className="w-5 h-5" />
+    </button>
+    ```
+  </Tab>
+</Tabs>
+
+### Input Fields
+
+```tsx
+<div className="space-y-2">
+  <label className="block text-sm font-medium text-gray-700">
+    Address
+  </label>
+  <input
+    type="text"
+    placeholder="123 Main St, Atlanta, GA"
+    className="
+      w-full px-3 py-2
+      border border-gray-300 rounded-md
+      placeholder:text-gray-400
+      focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
+      transition-shadow duration-150
+    "
+  />
+  <p className="text-sm text-gray-500">
+    Enter a full address or coordinates
+  </p>
+</div>
+```
+
+### Cards
+
+```tsx
+<div className="
+  bg-white
+  border border-gray-200
+  rounded-lg
+  shadow-md
+  overflow-hidden
+  hover:shadow-lg
+  transition-shadow duration-250
+">
+  <div className="p-6">
+    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+      123 Main Street
+    </h3>
+    <p className="text-sm text-gray-600">
+      Excellent solar potential • 2,450 sqft roof
+    </p>
+  </div>
+  <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+    <button className="text-sm font-medium text-primary-600 hover:text-primary-700">
+      View Details →
+    </button>
+  </div>
+</div>
+```
+
+### Badges
+
+```tsx
+/* Status Badge */
+<span className="
+  inline-flex items-center
+  px-2.5 py-0.5
+  rounded-full
+  text-xs font-medium
+  bg-green-100 text-green-800
+">
+  Excellent
+</span>
+
+/* Count Badge */
+<span className="
+  inline-flex items-center justify-center
+  w-6 h-6
+  rounded-full
+  text-xs font-bold
+  bg-primary-600 text-white
+">
+  3
+</span>
+```
+
+### Tooltips
+
+```tsx
+<div className="relative group">
+  <button className="p-2 text-gray-500 hover:text-gray-700">
+    <InfoIcon className="w-5 h-5" />
+  </button>
+
+  <div className="
+    absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+    px-3 py-2
+    bg-gray-900 text-white text-sm
+    rounded-md
+    opacity-0 group-hover:opacity-100
+    pointer-events-none
+    transition-opacity duration-150
+    whitespace-nowrap
+  ">
+    More information
+    <div className="
+      absolute top-full left-1/2 -translate-x-1/2
+      border-4 border-transparent border-t-gray-900
+    "></div>
+  </div>
+</div>
+```
+
+---
+
+## Layout Patterns
+
+### Page Layout
+
+```tsx
+<div className="min-h-screen bg-gray-50">
+  {/* Header */}
+  <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="flex items-center justify-between h-16">
+        <Logo />
+        <Navigation />
+        <UserMenu />
+      </div>
+    </div>
+  </header>
+
+  {/* Main Content */}
+  <main>
+    {children}
+  </main>
+
+  {/* Footer */}
+  <footer className="bg-white border-t border-gray-200 mt-auto">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <FooterContent />
+    </div>
+  </footer>
+</div>
+```
+
+### Split Layout (Map + Panel)
+
+```tsx
+<div className="flex h-screen">
+  {/* Map (takes remaining space) */}
+  <div className="flex-1 relative">
+    <Map />
+  </div>
+
+  {/* Side Panel (fixed width or resizable) */}
+  <aside className="w-96 bg-white border-l border-gray-200 overflow-y-auto">
+    <PropertyPanel />
+  </aside>
+</div>
+```
+
+### Grid Layout
+
+```tsx
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+  {properties.map(property => (
+    <PropertyCard key={property.id} property={property} />
+  ))}
+</div>
+```
+
+---
+
+## Responsive Design
+
+### Breakpoints
+
+```css
+/* Mobile First */
+--screen-sm: 640px;   /* Tablet */
+--screen-md: 768px;   /* Desktop */
+--screen-lg: 1024px;  /* Large Desktop */
+--screen-xl: 1280px;  /* Extra Large */
+--screen-2xl: 1536px; /* Ultra Wide */
+```
+
+### Responsive Utilities
+
+```tsx
+/* Hide on mobile, show on desktop */
+<div className="hidden md:block">
+  Desktop only content
+</div>
+
+/* Full width on mobile, fixed width on desktop */
+<div className="w-full md:w-96">
+  Responsive width
+</div>
+
+/* Stack on mobile, side-by-side on desktop */
+<div className="flex flex-col md:flex-row gap-4">
+  <div>Left</div>
+  <div>Right</div>
+</div>
+```
+
+---
+
+## Accessibility
+
+### WCAG 2.1 AA Compliance
+
+**Color Contrast:**
+- Text (normal): 4.5:1 minimum
+- Text (large): 3:1 minimum
+- UI components: 3:1 minimum
+
+**Keyboard Navigation:**
+- All interactive elements must be keyboard accessible
+- Focus indicators must be visible
+- Skip links for main content
+
+**Screen Readers:**
+- Semantic HTML (`<nav>`, `<main>`, `<article>`)
+- ARIA labels where needed
+- Alt text for all images
+
+### Examples
+
+```tsx
+/* Focus Visible */
+<button className="
+  focus:outline-none
+  focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2
+">
+  Accessible Button
+</button>
+
+/* Screen Reader Only */
+<span className="sr-only">
+  Loading...
+</span>
+
+/* ARIA Labels */
+<button aria-label="Close dialog">
+  <XIcon className="w-5 h-5" />
+</button>
+```
+
+---
+
+## Icon System
+
+### Icon Library
+
+We use **Lucide React** for icons (MIT licensed):
+
+```bash
+npm install lucide-react
+```
+
+### Common Icons
+
+```tsx
+import {
+  Search,
+  MapPin,
+  Home,
+  Sun,
+  AlertCircle,
+  ChevronDown,
+  X,
+  Check
+} from 'lucide-react';
+
+/* Usage */
+<Search className="w-5 h-5 text-gray-500" />
+```
+
+### Icon Sizes
+
+- `w-4 h-4` - 16px (small)
+- `w-5 h-5` - 20px (default)
+- `w-6 h-6` - 24px (medium)
+- `w-8 h-8` - 32px (large)
+
+---
+
+## Performance Guidelines
+
+### Code Splitting
+
+```tsx
+/* Lazy load heavy components */
+const Map = lazy(() => import('./components/Map'));
+const PropertyDetails = lazy(() => import('./components/PropertyDetails'));
+
+<Suspense fallback={<LoadingSpinner />}>
+  <Map />
+</Suspense>
+```
+
+### Image Optimization
+
+```tsx
+/* Use Next.js Image or similar */
+<img
+  src={property.image}
+  alt={property.address}
+  loading="lazy"
+  width={400}
+  height={300}
+/>
+```
+
+### Virtual Scrolling
+
+For large lists (1000+ items), use `@tanstack/react-virtual`:
+
+```tsx
+import { useVirtualizer } from '@tanstack/react-virtual';
+
+const rowVirtualizer = useVirtualizer({
+  count: properties.length,
+  getScrollElement: () => parentRef.current,
+  estimateSize: () => 100,
+});
+```
+
+---
+
+## Next Steps
+
+1. **Install Dependencies**
+   ```bash
+   npm install tailwindcss @tailwindcss/forms lucide-react
+   ```
+
+2. **Configure Tailwind**
+   - Add design tokens to `tailwind.config.js`
+   - Set up custom colors and spacing
+
+3. **Build Components**
+   - Use shadcn/ui for base components
+   - Customize with Evoteli design tokens
+
+4. **Document Components**
+   - Create Storybook stories
+   - Write usage examples
+
+Ready to start building the React application with this design system! 🎨

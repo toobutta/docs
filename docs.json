@@ -34,6 +34,8 @@
           {
             "group": "Development",
             "pages": [
+              "hybrid-development-plan",
+              "design-system",
               "development-plan",
               "implementation-roadmap",
               "implementation-summary"
