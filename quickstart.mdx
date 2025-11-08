@@ -1,6 +1,6 @@
 ---
 title: "Quickstart"
-description: "Get started with the Geo-Intelligence Platform in 30 minutes"
+description: "Get started with the Evoteli in 30 minutes"
 ---
 
 ## Overview
@@ -11,13 +11,13 @@ This quickstart will guide you through:
 3. Creating an alert
 4. Exploring the dashboard
 
-**Prerequisites:** You need a Geo-Intelligence Platform account with at least one active site or parcel.
+**Prerequisites:** You need a Evoteli account with at least one active site or parcel.
 
 ## Step 1: Obtain API Credentials
 
 <Steps>
   <Step title="Navigate to the Developer Portal">
-    Log in to your account at [https://portal.geointel.example.com](https://portal.geointel.example.com)
+    Log in to your account at [https://portal.evoteli.com](https://portal.evoteli.com)
   </Step>
   <Step title="Generate Client Credentials">
     - Go to **Settings > API Keys**
@@ -28,7 +28,7 @@ This quickstart will guide you through:
     Verify your credentials work:
 
     ```bash
-    curl -X POST https://auth.geointel.example.com/oauth/token \
+    curl -X POST https://auth.evoteli.com/oauth/token \
       -d "grant_type=client_credentials" \
       -d "client_id=YOUR_CLIENT_ID" \
       -d "client_secret=YOUR_CLIENT_SECRET"
@@ -88,14 +88,14 @@ for row in response.rows:
 
 ```bash
 # Get access token
-TOKEN=$(curl -s -X POST https://auth.geointel.example.com/oauth/token \
+TOKEN=$(curl -s -X POST https://auth.evoteli.com/oauth/token \
   -d "grant_type=client_credentials" \
   -d "client_id=$CLIENT_ID" \
   -d "client_secret=$CLIENT_SECRET" \
   | jq -r .access_token)
 
 # Query signals
-curl -X POST https://api.geointel.example.com/v1/signals:query \
+curl -X POST https://api.evoteli.com/v1/signals:query \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -155,7 +155,7 @@ print(f"Alert created: {alert.alert_id}")
    - Low-quality metric counts
    - Quality score distribution
 
-**Access:** [https://dashboards.geointel.example.com](https://dashboards.geointel.example.com)
+**Access:** [https://dashboards.evoteli.com](https://dashboards.evoteli.com)
 
 ## Step 6: Try Advanced Features
 
@@ -295,7 +295,7 @@ print(f"Insolation: {result.insolation_annual} kWh/m²/year")
 
 ## Support
 
-- **Documentation:** [https://docs.geointel.example.com](/)
-- **API Status:** [https://status.geointel.example.com](https://status.geointel.example.com)
-- **Email:** support@geointel.example.com
-- **Slack Community:** [Join here](https://slack.geointel.example.com)
+- **Documentation:** [https://docs.evoteli.com](/)
+- **API Status:** [https://status.evoteli.com](https://status.evoteli.com)
+- **Email:** support@evoteli.com
+- **Slack Community:** [Join here](https://slack.evoteli.com)

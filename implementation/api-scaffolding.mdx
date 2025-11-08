@@ -5,7 +5,7 @@ description: "FastAPI application structure and initial implementation"
 
 ## Overview
 
-The API Gateway is a FastAPI application that serves as the primary interface for the Geo-Intelligence Platform. It handles authentication, query routing, caching, and observability.
+The API Gateway is a FastAPI application that serves as the primary interface for the Evoteli. It handles authentication, query routing, caching, and observability.
 
 ## Project Structure
 
@@ -61,7 +61,7 @@ services/api-gateway/
 
 ```python
 """
-FastAPI application entry point for Geo-Intelligence Platform API Gateway.
+FastAPI application entry point for Evoteli API Gateway.
 """
 
 from contextlib import asynccontextmanager
@@ -93,7 +93,7 @@ async def lifespan(app: FastAPI):
     Lifespan context manager for startup and shutdown events.
     """
     # Startup
-    logger.info("Starting Geo-Intelligence Platform API Gateway")
+    logger.info("Starting Evoteli API Gateway")
 
     # Initialize database connections
     await clickhouse_client.connect()
@@ -115,7 +115,7 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="Geo-Intelligence Platform API",
+    title="Evoteli API",
     description="Decision-grade signals from computer vision, satellite imagery, and geospatial data",
     version="1.0.0",
     docs_url="/docs",
@@ -171,7 +171,7 @@ async def root():
     Root endpoint with API information.
     """
     return {
-        "name": "Geo-Intelligence Platform API",
+        "name": "Evoteli API",
         "version": "1.0.0",
         "docs": "/docs",
         "health": "/health"
@@ -637,8 +637,8 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 [tool.poetry]
 name = "api-gateway"
 version = "1.0.0"
-description = "Geo-Intelligence Platform API Gateway"
-authors = ["Your Team <team@example.com>"]
+description = "Evoteli API Gateway"
+authors = ["Your Team <team@evoteli.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.11"

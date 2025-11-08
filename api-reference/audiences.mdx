@@ -53,7 +53,7 @@ POST /v1/audiences.export
 ### Example: Solar Lead Export
 
 ```bash
-curl -X POST https://api.geointel.example.com/v1/audiences.export \
+curl -X POST https://api.evoteli.com/v1/audiences.export \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -83,7 +83,7 @@ curl -X POST https://api.geointel.example.com/v1/audiences.export \
 ### Example: Roof Replacement Leads
 
 ```bash
-curl -X POST https://api.geointel.example.com/v1/audiences.export \
+curl -X POST https://api.evoteli.com/v1/audiences.export \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -131,7 +131,7 @@ GET /v1/audiences.export/{job_id}
   "status": "completed",
   "final_count": 8192,
   "destination": "gads_customer_match",
-  "download_url": "https://api.geointel.example.com/exports/aud-export-20251106-001.csv",
+  "download_url": "https://api.evoteli.com/exports/aud-export-20251106-001.csv",
   "expires_at": "2025-11-13T14:30:00Z",
   "completed_at": "2025-11-06T14:45:00Z"
 }
@@ -193,7 +193,7 @@ Audiences automatically exclude parcels/addresses in the **opt-out registry**. U
 ```
 POST /v1/privacy/opt-out
 {
-  "email": "user@example.com",
+  "email": "user@evoteli.com",
   "address": "123 Main St, Atlanta, GA 30301"
 }
 ```

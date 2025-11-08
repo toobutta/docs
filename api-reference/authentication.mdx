@@ -5,7 +5,7 @@ description: "OAuth 2.0 authentication with client credentials flow"
 
 ## Overview
 
-The Geo-Intelligence Platform uses **OAuth 2.0 with the Client Credentials grant** for server-to-server API authentication.
+The Evoteli uses **OAuth 2.0 with the Client Credentials grant** for server-to-server API authentication.
 
 ## Obtaining Credentials
 
@@ -18,7 +18,7 @@ Contact your account manager or use the self-service portal to generate:
 
 **Endpoint:**
 ```
-POST https://auth.geointel.example.com/oauth/token
+POST https://auth.evoteli.com/oauth/token
 ```
 
 **Headers:**
@@ -36,7 +36,7 @@ scope=signals:read alerts:write audiences:write
 
 **Example:**
 ```bash
-curl -X POST https://auth.geointel.example.com/oauth/token \
+curl -X POST https://auth.evoteli.com/oauth/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=client_credentials" \
   -d "client_id=abc123" \
@@ -59,7 +59,7 @@ curl -X POST https://auth.geointel.example.com/oauth/token \
 Include the token in the `Authorization` header for all API requests:
 
 ```bash
-curl -X POST https://api.geointel.example.com/v1/signals:query \
+curl -X POST https://api.evoteli.com/v1/signals:query \
   -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." \
   -H "Content-Type: application/json" \
   -d '{ "site_id": "ATL-001", ... }'
@@ -92,7 +92,7 @@ class TokenManager:
 
     def refresh_token(self):
         response = requests.post(
-            "https://auth.geointel.example.com/oauth/token",
+            "https://auth.evoteli.com/oauth/token",
             data={
                 "grant_type": "client_credentials",
                 "client_id": self.client_id,
@@ -164,7 +164,7 @@ Contact support for SSO enablement.
 
 **Valid Token Test:**
 ```bash
-curl -X GET https://api.geointel.example.com/v1/auth/verify \
+curl -X GET https://api.evoteli.com/v1/auth/verify \
   -H "Authorization: Bearer $TOKEN"
 ```
 

@@ -5,7 +5,7 @@ description: "Understanding quality scores, confidence intervals, and source att
 
 ## Overview
 
-Every metric in the Geo-Intelligence Platform includes **provenance** (source attribution, model lineage) and a **quality score** (0-1 confidence rating). This ensures transparency, compliance, and decision-grade intelligence.
+Every metric in the Evoteli includes **provenance** (source attribution, model lineage) and a **quality score** (0-1 confidence rating). This ensures transparency, compliance, and decision-grade intelligence.
 
 ## Quality Score (0-1)
 
@@ -224,7 +224,7 @@ sites_with_quality_issues = db.query("""
 """)
 
 send_email(
-    to="ops@example.com",
+    to="ops@evoteli.com",
     subject="Weekly Quality Report",
     body=render_template("quality_report.html", data=sites_with_quality_issues)
 )

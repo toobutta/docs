@@ -5,12 +5,12 @@ description: "REST API for querying signals, creating alerts, exporting audience
 
 ## Overview
 
-The Geo-Intelligence Platform exposes a **RESTful JSON API** for querying time-series signals, creating alerts, exporting audiences, and triggering Earth Engine tasks.
+The Evoteli exposes a **RESTful JSON API** for querying time-series signals, creating alerts, exporting audiences, and triggering Earth Engine tasks.
 
 ## Base URL
 
 ```
-https://api.geointel.example.com/v1
+https://api.evoteli.com/v1
 ```
 
 ## Authentication
@@ -20,7 +20,7 @@ All API requests require an **OAuth 2.0 Bearer Token** obtained via your client 
 ### Obtaining a Token
 
 ```bash
-curl -X POST https://auth.geointel.example.com/oauth/token \
+curl -X POST https://auth.evoteli.com/oauth/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=client_credentials" \
   -d "client_id=$CLIENT_ID" \
@@ -41,7 +41,7 @@ curl -X POST https://auth.geointel.example.com/oauth/token \
 Include the token in the `Authorization` header:
 
 ```bash
-curl -X POST https://api.geointel.example.com/v1/signals:query \
+curl -X POST https://api.evoteli.com/v1/signals:query \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{ ... }'
@@ -206,9 +206,9 @@ for row in response.rows:
 
 ## Support
 
-- **Documentation:** https://docs.geointel.example.com
-- **API Status:** https://status.geointel.example.com
-- **Support Email:** support@geointel.example.com
+- **Documentation:** https://docs.evoteli.com
+- **API Status:** https://status.evoteli.com
+- **Support Email:** support@evoteli.com
 - **GitHub Issues:** https://github.com/geointel/sdk-python/issues
 
 ## Next Steps

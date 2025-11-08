@@ -37,7 +37,7 @@ POST /v1/earthengine.task
 ### Example: Solar Insolation
 
 ```bash
-curl -X POST https://api.geointel.example.com/v1/earthengine.task \
+curl -X POST https://api.evoteli.com/v1/earthengine.task \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -61,7 +61,7 @@ curl -X POST https://api.geointel.example.com/v1/earthengine.task \
 ### Example: Impervious Surface
 
 ```bash
-curl -X POST https://api.geointel.example.com/v1/earthengine.task \
+curl -X POST https://api.evoteli.com/v1/earthengine.task \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -202,7 +202,7 @@ POST /v1/earthengine.batch
 {
   "task_id": "insolation_roof",
   "polygon_ids": ["PARCEL-441", "PARCEL-442", "PARCEL-443", ...],
-  "callback_url": "https://api.example.com/webhooks/ee-complete"
+  "callback_url": "https://api.evoteli.com/webhooks/ee-complete"
 }
 ```
 

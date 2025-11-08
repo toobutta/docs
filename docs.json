@@ -1,11 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Geo-Intelligence Platform",
+  "name": "Evoteli",
+  "description": "Market Intelligence Platform - Fusing computer vision, satellite imagery, and geospatial data for decision-grade signals",
+  "theme": "dark",
   "colors": {
-    "primary": "#2563EB",
-    "light": "#3B82F6",
-    "dark": "#1E40AF"
+    "primary": "#10b981",
+    "light": "#34d399",
+    "dark": "#059669"
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -98,45 +98,30 @@
             "group": "Architecture",
             "pages": [
               "implementation/edge-processing",
-              "implementation/stream-processing",
-              "implementation/batch-processing",
-              "implementation/storage",
-              "implementation/serving",
               "implementation/api-scaffolding"
             ]
           },
           {
             "group": "Deployment",
             "pages": [
-              "deployment/infrastructure",
               "deployment/docker-compose",
               "deployment/migrations",
-              "deployment/ci-cd",
-              "deployment/edge-devices",
-              "deployment/observability"
-            ]
-          },
-          {
-            "group": "Privacy & Compliance",
-            "pages": [
-              "compliance/privacy-by-design",
-              "compliance/data-governance",
-              "compliance/licensing"
+              "deployment/ci-cd"
             ]
           }
         ]
       }
     ],
     "global": {
-      "anchors": [
+      "links": [
         {
-          "anchor": "API Status",
-          "href": "https://status.example.com",
+          "label": "API Status",
+          "href": "https://status.evoteli.com",
           "icon": "signal"
         },
         {
-          "anchor": "GitHub",
-          "href": "https://github.com",
+          "label": "GitHub",
+          "href": "https://github.com/evoteli",
           "icon": "github"
         }
       ]
@@ -150,7 +135,7 @@
     "links": [
       {
         "label": "Support",
-        "href": "mailto:support@example.com"
+        "href": "mailto:support@evoteli.com"
       }
     ],
     "primary": {
@@ -159,21 +144,10 @@
       "href": "/quickstart"
     }
   },
-  "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "chatgpt",
-      "claude",
-      "perplexity",
-      "mcp",
-      "cursor",
-      "vscode"
-    ]
-  },
   "footer": {
     "socials": {
-      "github": "https://github.com"
+      "github": "https://github.com/evoteli",
+      "twitter": "https://twitter.com/evoteli"
     }
   }
 }

@@ -5,7 +5,7 @@ description: "Comprehensive 90-day development, architecture, and implementation
 
 ## Executive Summary
 
-This document outlines the **complete development plan** for the Geo-Intelligence Platform MVP, covering methodology, architecture, implementation phases, and success criteria for a **90-day delivery**.
+This document outlines the **complete development plan** for the Evoteli MVP, covering methodology, architecture, implementation phases, and success criteria for a **90-day delivery**.
 
 **Target:** Production-ready MVP with 10 pilot sites and 1,000+ analyzed parcels
 **Team:** 4.5 FTE (Platform, ML, Backend, Frontend, DevOps)
@@ -404,16 +404,16 @@ POST   /v1/provenance:batch        # Batch provenance lookup
 ```yaml
 openapi: 3.0.3
 info:
-  title: Geo-Intelligence Platform API
+  title: Evoteli API
   version: 1.0.0
   description: |
     Decision-grade intelligence from computer vision, satellite imagery,
     and location data.
 
 servers:
-  - url: https://api.geointel.example.com/v1
+  - url: https://api.evoteli.com/v1
     description: Production
-  - url: https://staging-api.geointel.example.com/v1
+  - url: https://staging-api.evoteli.com/v1
     description: Staging
 
 security:
@@ -425,7 +425,7 @@ components:
       type: oauth2
       flows:
         clientCredentials:
-          tokenUrl: https://auth.geointel.example.com/oauth/token
+          tokenUrl: https://auth.evoteli.com/oauth/token
           scopes:
             signals:read: Read time-series signals
             signals:write: Write custom signals

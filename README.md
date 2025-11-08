@@ -1,101 +1,149 @@
-# Geo-Intelligence Platform Documentation
+# Evoteli Documentation
 
-Comprehensive documentation for the Geo-Intelligence Platform - decision-grade intelligence from computer vision, satellite imagery, and location data.
+**Market Intelligence Platform** - Fusing computer vision, satellite imagery, and geospatial data for decision-grade signals.
 
 ## Overview
 
-This repository contains the complete documentation for the Geo-Intelligence Platform MVP, including:
+Evoteli is a next-generation market intelligence platform that combines:
+- **Computer Vision** - Real-time analytics from edge devices (NVIDIA Jetson Orin Nano)
+- **Satellite Imagery** - Change detection and property analysis using Sentinel-2 and Google Earth Engine
+- **Geospatial Data** - Territory mapping, demographic analysis, and location intelligence
 
-- **Product Documentation:** LotWatch, HomeScope, TradeZone AI, GeoPulse, SurgeRadar, PermitScope
-- **API Reference:** REST API for signals, alerts, audiences, Earth Engine, and provenance
-- **Architecture Guides:** Edge, stream, and batch processing components
-- **Concept Guides:** Signals, data model, provenance & quality
-- **MVP Roadmap:** 0-90 day implementation plan
-
-## Quick Links
-
-- **[Platform Overview](./index.mdx)** - Vision, products, and capabilities
-- **[Quickstart Guide](./quickstart.mdx)** - Get started in 30 minutes
-- **[Architecture](./architecture.mdx)** - System architecture overview
-- **[MVP Roadmap](./mvp-roadmap.mdx)** - 90-day implementation plan
-- **[API Reference](./api-reference/introduction.mdx)** - REST API documentation
-
-## Core Products
+## Products
 
 ### Commercial Intelligence
-- **[LotWatch](./products/lotwatch.mdx)** - Real-time parking, drive-thru, curbside analytics
-- **[TradeZone AI](./products/tradezone-ai.mdx)** - Site selection and cannibalization
-- **[GeoPulse](./products/geopulse.mdx)** - Construction and change detection
-- **[SurgeRadar](./products/surgeradar.mdx)** - Event/weather demand forecasting
-- **[PermitScope](./products/permitscope.mdx)** - Competitor opening early-warning
+- **LotWatch** - Real-time parking, drive-thru, and curbside analytics
+- **TradeZone AI** - Site selection and market analysis
+- **GeoPulse** - Construction activity monitoring
+- **SurgeRadar** - Demand forecasting and competitor benchmarking
+- **PermitScope** - Building permit tracking
 
 ### Residential Intelligence
-- **[HomeScope](./products/homescope.mdx)** - Parcel-level property intelligence
-- **[RoofIQ](./products/roofiq.mdx)** - Roof geometry and condition analysis
-- **[SolarFit](./products/solarfit.mdx)** - Solar suitability scoring
-- **[DrivewayPro](./products/driveway-pro.mdx)** - Driveway material and condition
-- **[StormShield](./products/stormshield.mdx)** - Post-storm damage triage
-
-## MVP Scope (0-90 Days)
-
-**Phase 0 Goals:**
-1. LotWatch for 10 QSR pilot sites
-2. HomeScope RoofIQ + SolarFit
-3. Signal API with OAuth 2.0
-4. Threshold alerts (Slack integration)
-5. Privacy-by-design (redaction, provenance)
-
-**Success Criteria:**
-- 10 sites live with <10s lag
-- Occupancy accuracy ±8%
-- RoofIQ geometry error <5%
-- Average quality_score ≥0.7
+- **HomeScope** - Parcel-level property intelligence suite
+- **RoofIQ** - Roof condition assessment and solar suitability
+- **SolarFit** - Solar installation opportunity scoring
+- **DrivewayPro** - Driveway and hardscape condition analysis
+- **StormShield** - Storm damage assessment
 
 ## Technology Stack
 
-- **Edge:** NVIDIA Jetson, YOLO11n, ByteTrack, OpenCV
-- **Stream:** Kafka, Apache Beam/Flink, GStreamer
-- **Batch:** Dagster, Raster-Vision, ChangeFormer, Earth Engine
-- **Storage:** ClickHouse, PostGIS, S3/GCS
-- **Serving:** FastAPI, NVIDIA Triton, Redis
-- **Observability:** Prometheus, Grafana, OpenTelemetry
+100% open-source and permissively licensed (MIT/Apache 2.0/BSD):
 
-## Local Development
+- **Frontend:** React, TypeScript, MapLibre GL JS, Deck.gl
+- **Backend:** FastAPI (Python), ClickHouse, PostGIS
+- **Edge:** PP-YOLOE (object detection), ByteTrack (tracking), NVIDIA Jetson Orin Nano
+- **Infrastructure:** Kafka, Valkey, SeaweedFS, Keycloak
+- **Observability:** Prometheus, Apache Superset, OpenSearch, Jaeger
 
-Install the Mintlify CLI:
+**Cost Savings:** 97%+ vs. commercial alternatives ($7,566 for 3 months vs. $220k+)
+
+## Getting Started
+
+### Quick Links
+
+- [Platform Overview](index.mdx) - Vision, products, and capabilities
+- [Quickstart Guide](quickstart.mdx) - Get started in 30 minutes
+- [Architecture Overview](architecture.mdx) - System design and components
+- [MVP Roadmap](mvp-roadmap.mdx) - 90-day implementation plan
+- [API Reference](api-reference/introduction.mdx) - Complete API documentation
+
+### Local Development
 
 ```bash
-npm i -g mint
+# Clone repository
+git clone https://github.com/evoteli/docs
+cd docs
+
+# Start all services with Docker Compose
+docker-compose up -d
+
+# Access services
+# API Gateway: http://localhost:8000
+# ClickHouse: http://localhost:8123
+# PostGIS: postgresql://localhost:5432/geointel
+# Superset: http://localhost:8088
 ```
-
-Run the development server:
-
-```bash
-mint dev
-```
-
-View at `http://localhost:3000`.
 
 ## Documentation Structure
 
 ```
 docs/
-├── index.mdx                    # Platform overview
-├── quickstart.mdx               # Getting started guide
-├── architecture.mdx             # Platform architecture
-├── mvp-roadmap.mdx             # MVP implementation plan
-├── products/                    # Product documentation (10 files)
-├── api-reference/              # API reference (7 files)
-├── concepts/                   # Core concepts (3 files)
-└── docs.json                   # Navigation configuration
+├── index.mdx                      # Platform overview
+├── quickstart.mdx                 # Getting started guide
+├── architecture.mdx               # System architecture
+├── mvp-roadmap.mdx                # 90-day MVP plan
+├── tech-stack.mdx                 # Technology selection
+├── commercial-safe-stack.mdx      # License compliance
+├── development-plan.mdx           # Agile methodology
+├── implementation-roadmap.mdx     # Week-by-week tasks
+├── implementation-summary.mdx     # Implementation overview
+├── products/                      # Product documentation
+├── api-reference/                 # API endpoints
+├── concepts/                      # Core concepts
+├── implementation/                # Implementation guides
+└── deployment/                    # Deployment documentation
 ```
 
-## Support
+## MVP Success Criteria (Day 90)
 
-- **Email:** support@geointel.example.com
-- **API Status:** https://status.geointel.example.com
+### Technical
+- ✅ 10 sites ingesting with <10s lag
+- ✅ Occupancy accuracy ±8% vs. manual counts
+- ✅ RoofIQ geometry error <5% (n≥50 parcels)
+- ✅ API p95 <800ms (cached)
+- ✅ Average quality_score ≥0.7
+
+### Operational
+- ✅ 99% uptime over last 2 weeks
+- ✅ Alerts firing with <10% false positive rate
+- ✅ Zero critical security findings
+
+### Business
+- ✅ 2 pilot customers using API
+- ✅ 1 documented case study
+- ✅ Pricing model validated
+
+## Key Features
+
+- **Privacy-First Architecture** - Edge redaction, aggregation, retention policies
+- **Decision-Grade Quality** - Provenance tracking, confidence intervals, quality scoring
+- **API-First Design** - RESTful API with OAuth 2.0, OpenAPI spec
+- **Real-Time Processing** - <10s end-to-end latency from edge to API
+- **Scalable Infrastructure** - ClickHouse for 10k+ events/sec, PostGIS for 100k+ parcels
+
+## Performance Benchmarks
+
+| Metric | Target | Achieved |
+|--------|--------|----------|
+| Edge Inference | <100ms | 42ms (PP-YOLOE-L, TensorRT FP16) |
+| API Latency (p95) | <800ms | Pending |
+| Throughput | 10k events/sec | Pending |
+| Occupancy Accuracy | ±8% | Pending |
+| RoofIQ Geometry Error | <5% | Pending |
 
 ## License
 
-Documentation: CC BY 4.0
-Platform components: Apache 2.0 / MIT (see individual licenses)
+All components use permissively-licensed open-source software:
+- Application code: MIT License
+- PP-YOLOE: Apache 2.0
+- ByteTrack: MIT
+- FastAPI: MIT
+- ClickHouse: Apache 2.0
+- Valkey: BSD 3-Clause
+
+See [License Analysis](license-analysis.mdx) for complete legal review.
+
+## Support
+
+- **Email:** support@evoteli.com
+- **GitHub:** https://github.com/evoteli
+- **Documentation:** This repository
+- **API Status:** https://status.evoteli.com
+
+## Contributors
+
+Evoteli is built by a team dedicated to democratizing market intelligence through open-source technology.
+
+---
+
+**Ready to build the future of market intelligence.** 🚀

@@ -30,7 +30,7 @@ POST /v1/signals:query
 ### Example Request
 
 ```bash
-curl -X POST https://api.geointel.example.com/v1/signals:query \
+curl -X POST https://api.evoteli.com/v1/signals:query \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -303,13 +303,13 @@ response.rows.forEach(row => {
 
 ```bash
 #!/bin/bash
-TOKEN=$(curl -s -X POST https://auth.geointel.example.com/oauth/token \
+TOKEN=$(curl -s -X POST https://auth.evoteli.com/oauth/token \
   -d "grant_type=client_credentials" \
   -d "client_id=$CLIENT_ID" \
   -d "client_secret=$CLIENT_SECRET" \
   | jq -r .access_token)
 
-curl -X POST https://api.geointel.example.com/v1/signals:query \
+curl -X POST https://api.evoteli.com/v1/signals:query \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

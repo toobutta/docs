@@ -5,7 +5,7 @@ description: "GitHub Actions workflows for automated testing and deployment"
 
 ## Overview
 
-The Geo-Intelligence Platform uses GitHub Actions for continuous integration and deployment. This includes automated testing, linting, security scanning, Docker image building, and deployment to staging/production environments.
+The Evoteli uses GitHub Actions for continuous integration and deployment. This includes automated testing, linting, security scanning, Docker image building, and deployment to staging/production environments.
 
 ## Workflow Structure
 
@@ -270,7 +270,7 @@ jobs:
     if: github.ref == 'refs/heads/develop'
     environment:
       name: staging
-      url: https://api-staging.geointel.example.com
+      url: https://api-staging.evoteli.com
 
     steps:
       - name: Checkout code
@@ -299,7 +299,7 @@ jobs:
           sleep 30
 
           # Test health endpoint
-          curl -f https://api-staging.geointel.example.com/health || exit 1
+          curl -f https://api-staging.evoteli.com/health || exit 1
 
           echo "Smoke tests passed"
 
@@ -314,7 +314,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     environment:
       name: production
-      url: https://api.geointel.example.com
+      url: https://api.evoteli.com
 
     steps:
       - name: Checkout code
@@ -343,11 +343,11 @@ jobs:
           sleep 30
 
           # Test health endpoint
-          curl -f https://api.geointel.example.com/health || exit 1
+          curl -f https://api.evoteli.com/health || exit 1
 
           # Test authenticated endpoint (requires test token)
           # curl -f -H "Authorization: Bearer ${{ secrets.TEST_TOKEN }}" \
-          #   https://api.geointel.example.com/v1/signals:query \
+          #   https://api.evoteli.com/v1/signals:query \
           #   -d '{"site_id":"test","metrics":["occupancy"],...}' || exit 1
 
           echo "Production smoke tests passed"
@@ -685,7 +685,7 @@ kubectl rollout status deployment/api-gateway --namespace=geointel-production
 ### GitHub Actions Dashboard
 
 Monitor workflow runs at:
-`https://github.com/your-org/geo-intelligence-platform/actions`
+`https://github.com/evoteli/geo-intelligence-platform/actions`
 
 ### Metrics to Track
 

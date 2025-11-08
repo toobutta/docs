@@ -5,7 +5,7 @@ description: "Local development environment with all platform services"
 
 ## Overview
 
-This Docker Compose configuration provides a complete local development environment for the Geo-Intelligence Platform. It includes all core services with production-equivalent configurations.
+This Docker Compose configuration provides a complete local development environment for the Evoteli. It includes all core services with production-equivalent configurations.
 
 ## Services
 
@@ -350,7 +350,7 @@ services:
       - geointel
     command: >
       bash -c "superset db upgrade &&
-               superset fab create-admin --username admin --firstname Admin --lastname User --email admin@example.com --password admin &&
+               superset fab create-admin --username admin --firstname Admin --lastname User --email admin@evoteli.com --password admin &&
                superset init &&
                superset run -h 0.0.0.0 -p 8088 --with-threads --reload"
 
@@ -524,7 +524,7 @@ LOG_LEVEL=INFO
 
 ```bash
 # Clone repository
-git clone https://github.com/your-org/geo-intelligence-platform
+git clone https://github.com/evoteli/geo-intelligence-platform
 cd geo-intelligence-platform
 
 # Create .env file

@@ -39,7 +39,7 @@ POST /v1/alerts.create
 ### Example: Queue Length Threshold Alert
 
 ```bash
-curl -X POST https://api.geointel.example.com/v1/alerts.create \
+curl -X POST https://api.evoteli.com/v1/alerts.create \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -72,7 +72,7 @@ curl -X POST https://api.geointel.example.com/v1/alerts.create \
 ### Example: Competitor Index Anomaly Alert
 
 ```bash
-curl -X POST https://api.geointel.example.com/v1/alerts.create \
+curl -X POST https://api.evoteli.com/v1/alerts.create \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -85,7 +85,7 @@ curl -X POST https://api.geointel.example.com/v1/alerts.create \
       "sensitivity": 0.8
     },
     "payload": {
-      "webhook_url": "https://api.example.com/webhooks/alerts"
+      "webhook_url": "https://api.evoteli.com/webhooks/alerts"
     }
   }'
 ```
@@ -115,7 +115,7 @@ curl -X POST https://api.geointel.example.com/v1/alerts.create \
 
 ```json
 {
-  "webhook_url": "https://api.example.com/webhooks/alerts",
+  "webhook_url": "https://api.evoteli.com/webhooks/alerts",
   "headers": {
     "X-Custom-Header": "value"
   }
@@ -126,7 +126,7 @@ curl -X POST https://api.geointel.example.com/v1/alerts.create \
 
 ```json
 {
-  "recipients": ["ops@example.com", "manager@example.com"],
+  "recipients": ["ops@evoteli.com", "manager@evoteli.com"],
   "subject": "Drive-Thru Alert"
 }
 ```
@@ -279,7 +279,7 @@ Trigger when a metric deviates significantly from historical patterns using stat
     "value": 0.3
   },
   "payload": {
-    "recipients": ["strategy@example.com"]
+    "recipients": ["strategy@evoteli.com"]
   }
 }
 ```
