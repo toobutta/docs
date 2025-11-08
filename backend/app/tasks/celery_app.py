@@ -55,6 +55,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.alert_tasks.cleanup_old_alerts",
         "schedule": crontab(hour=2, minute=0),  # Daily at 2 AM UTC
     },
+    # Process Google Ads auto-sync audiences every hour
+    "process-auto-sync-audiences": {
+        "task": "app.tasks.google_ads_tasks.process_auto_sync_audiences",
+        "schedule": crontab(minute=0),  # Every hour
+    },
 }
 
 # Auto-discover tasks
