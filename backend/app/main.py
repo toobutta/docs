@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.core.cache import cache
-from app.api.v1 import properties
+from app.api.v1 import properties, saved_searches
 
 
 @asynccontextmanager
@@ -42,6 +42,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(properties.router, prefix=settings.API_V1_STR)
+app.include_router(saved_searches.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/")

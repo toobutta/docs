@@ -27,7 +27,16 @@ class Settings(BaseSettings):
 
     # SendGrid
     SENDGRID_API_KEY: Optional[str] = None
-    FROM_EMAIL: str = "alerts@evoteli.com"
+    SENDGRID_FROM_EMAIL: str = "alerts@evoteli.com"
+    SENDGRID_FROM_NAME: str = "Evoteli Alerts"
+    SENDGRID_UNSUBSCRIBE_GROUP_ID: Optional[int] = None
+
+    # Celery
+    CELERY_BROKER_URL: str = "redis://localhost:6379/1"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/1"
+
+    # Frontend URL (for email links)
+    FRONTEND_URL: str = "http://localhost:3000"
 
     # Google Ads
     GOOGLE_ADS_CLIENT_ID: Optional[str] = None
