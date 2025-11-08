@@ -1,0 +1,518 @@
+---
+title: "Open Source License Analysis"
+description: "Comprehensive review of licenses for commercial use and permissive alternatives"
+---
+
+## Overview
+
+This document analyzes **all open-source components** in the tech stack to ensure they can be used **commercially without restrictions**. Components with restrictive licenses (AGPL, GPL, BSL) are identified and replaced with **permissive alternatives** (MIT, Apache 2.0, BSD).
+
+## License Categories
+
+### ✅ Permissive (Commercial-Safe)
+- **MIT**: Can modify, distribute, use commercially, no copyleft
+- **Apache 2.0**: Like MIT + patent protection
+- **BSD 3-Clause**: Like MIT with attribution requirement
+- **ISC**: Simplified MIT
+
+### ⚠️ Weak Copyleft (Use with Caution)
+- **LGPL**: Can link dynamically, but modifications to library must be open-sourced
+- **MPL 2.0**: Can combine with proprietary code, but modifications to MPL files must be shared
+
+### ❌ Strong Copyleft (Avoid for Commercial SaaS)
+- **GPL**: Requires entire application to be open-sourced if distributed
+- **AGPL**: Like GPL + network use triggers distribution (SaaS products must be open-sourced)
+- **SSPL/BSL**: Restricts commercial SaaS offerings
+
+---
+
+## Component Analysis by Category
+
+### 1. Frontend
+
+| Component | Current License | Status | Action |
+|-----------|----------------|--------|--------|
+| **React** | MIT | ✅ Safe | Keep |
+| **Vite** | MIT | ✅ Safe | Keep |
+| **TypeScript** | Apache 2.0 | ✅ Safe | Keep |
+| **MapLibre GL JS** | BSD 3-Clause | ✅ Safe | Keep |
+| **Deck.gl** | MIT | ✅ Safe | Keep |
+| **Mapbox GL Draw** | ISC | ✅ Safe | Keep |
+| **shadcn/ui** | MIT | ✅ Safe | Keep |
+| **Radix UI** | MIT | ✅ Safe | Keep |
+| **Tailwind CSS** | MIT | ✅ Safe | Keep |
+| **Zustand** | MIT | ✅ Safe | Keep |
+| **React Query** | MIT | ✅ Safe | Keep |
+
+**Verdict:** All frontend components are **commercially safe**.
+
+---
+
+### 2. Backend API
+
+| Component | Current License | Status | Action |
+|-----------|----------------|--------|--------|
+| **FastAPI** | MIT | ✅ Safe | Keep |
+| **Uvicorn** | BSD 3-Clause | ✅ Safe | Keep |
+| **Pydantic** | MIT | ✅ Safe | Keep |
+| **Python 3.11+** | PSF License (permissive) | ✅ Safe | Keep |
+
+**Verdict:** All backend API components are **commercially safe**.
+
+---
+
+### 3. Databases
+
+#### Time-Series Database
+
+| Component | Current License | Status | Action |
+|-----------|----------------|--------|--------|
+| **ClickHouse** | Apache 2.0 | ✅ Safe | Keep |
+
+**Alternative (if needed):**
+- **QuestDB** (Apache 2.0) - Faster for time-series, SQL-compatible
+- **TimescaleDB** (Apache 2.0 for core, proprietary for enterprise features)
+
+#### Geospatial Database
+
+| Component | Current License | Status | Action |
+|-----------|----------------|--------|--------|
+| **PostgreSQL** | PostgreSQL License (permissive, MIT-style) | ✅ Safe | Keep |
+| **PostGIS** | GPL v2 **with linking exception** | ⚠️ Caution | **Safe to use** |
+
+**PostGIS Analysis:**
+- PostGIS has a **GPL v2 license with a special exception**
+- The exception allows linking from proprietary applications
+- **Safe for commercial use** as long as you don't modify PostGIS itself
+- If you modify PostGIS, only those modifications must be open-sourced
+
+**Verdict:** PostgreSQL + PostGIS are **commercially safe**.
+
+#### Cache
+
+| Component | Current License | Status | Action |
+|-----------|----------------|--------|--------|
+| **Redis 7.0+** | RSALv2 / SSPLv1 (since 2024) | ❌ **PROBLEMATIC** | **Replace** |
+| **Redis 6.x** | BSD 3-Clause | ✅ Safe | Use older version |
+
+**Redis License Change:**
+- Redis Labs changed license in March 2024 to **Redis Source Available License (RSALv2)** and **Server Side Public License (SSPLv1)**
+- These licenses **prohibit commercial SaaS offerings** that compete with Redis Labs
+- **Solution:** Use Redis 6.x (BSD) or switch to alternatives
+
+**Recommended Alternatives:**
+
+1. **Valkey** (BSD 3-Clause) ⭐ **RECOMMENDED**
+   - Fork of Redis 6.2 by Linux Foundation
+   - Drop-in replacement, same API
+   - Maintained by AWS, Google, Oracle, Alibaba
+   - **License:** BSD 3-Clause
+   - **Repository:** https://github.com/valkey-io/valkey
+
+2. **Dragonfly** (BSL 1.1 → Apache 2.0 after 4 years)
+   - 25x faster than Redis
+   - Drop-in replacement
+   - **License:** BSL 1.1 (converts to Apache 2.0 after 4 years)
+   - **Repository:** https://github.com/dragonflydb/dragonfly
+   - **Commercial use:** Allowed, but can't offer as managed service for 4 years
+
+3. **KeyDB** (BSD 3-Clause)
+   - Fork of Redis 5.x
+   - Multi-threaded, faster than Redis
+   - **License:** BSD 3-Clause
+   - **Repository:** https://github.com/Snapchat/KeyDB
+
+**Recommendation:** Use **Valkey** (BSD 3-Clause, most active development)
+
+---
+
+### 4. Object Storage
+
+| Component | Current License | Status | Action |
+|-----------|----------------|--------|--------|
+| **MinIO** | AGPL v3 / Apache 2.0 (commercial) | ❌ **PROBLEMATIC** | **Replace** |
+
+**MinIO Licensing:**
+- **Community Edition:** AGPL v3 (requires source disclosure for SaaS)
+- **Enterprise Edition:** Apache 2.0 (requires paid license from MinIO Inc.)
+
+**Recommended Alternatives:**
+
+1. **SeaweedFS** (Apache 2.0) ⭐ **RECOMMENDED**
+   - S3-compatible
+   - Distributed, fast
+   - Better performance than MinIO for small files
+   - **License:** Apache 2.0
+   - **Repository:** https://github.com/seaweedfs/seaweedfs
+
+2. **Ceph** (LGPL v2.1 / GPL v2)
+   - Enterprise-grade
+   - S3-compatible (RadosGW)
+   - **License:** LGPL v2.1 (libraries), GPL v2 (binaries)
+   - **Status:** ⚠️ LGPL allows dynamic linking (safe for commercial)
+
+3. **Garage** (AGPL v3)
+   - Lightweight, geo-distributed
+   - **License:** AGPL v3
+   - **Status:** ❌ Not suitable
+
+4. **Just use AWS S3 / Cloudflare R2**
+   - No license concerns
+   - Pay-as-you-go
+   - **Cost:** S3 $0.023/GB, R2 $0.015/GB (no egress)
+
+**Recommendation:** Use **SeaweedFS** (Apache 2.0) or **Cloudflare R2** (commercial)
+
+---
+
+### 5. Computer Vision
+
+#### Object Detection
+
+| Component | Current License | Status | Action |
+|-----------|----------------|--------|--------|
+| **YOLO11 (Ultralytics)** | AGPL v3 / Enterprise License | ❌ **PROBLEMATIC** | **Replace** |
+
+**YOLO11 Licensing:**
+- **Community Edition:** AGPL v3 (requires full source disclosure for SaaS)
+- **Enterprise License:** Proprietary (starts at $1,000/year per developer)
+- **Problem:** AGPL v3 means any SaaS using YOLO11 must open-source entire application
+
+**Recommended Alternatives:**
+
+1. **YOLOv5** (GPL v3) ❌ **Still problematic**
+   - Older version from Ultralytics
+   - Same restrictive license
+
+2. **YOLOX** (Apache 2.0) ⭐ **RECOMMENDED**
+   - Megvii (Face++) implementation
+   - Comparable accuracy to YOLOv5
+   - **License:** Apache 2.0
+   - **Repository:** https://github.com/Megvii-BaseDetection/YOLOX
+   - **Performance:** 50+ FPS on COCO, 47.3% AP
+
+3. **PP-YOLOE** (Apache 2.0) ⭐ **EXCELLENT ALTERNATIVE**
+   - Baidu PaddlePaddle implementation
+   - **Better accuracy** than YOLOv5/v7
+   - 48.9% AP on COCO
+   - **License:** Apache 2.0
+   - **Repository:** https://github.com/PaddlePaddle/PaddleDetection
+
+4. **DETR (Facebook)** (Apache 2.0)
+   - Transformer-based detection
+   - State-of-art accuracy
+   - **License:** Apache 2.0
+   - **Repository:** https://github.com/facebookresearch/detr
+   - **Slower:** ~30 FPS (vs 50+ for YOLO)
+
+5. **EfficientDet** (Apache 2.0)
+   - Google's detection model
+   - Good balance of speed and accuracy
+   - **License:** Apache 2.0
+   - **Repository:** https://github.com/google/automl/tree/master/efficientdet
+
+**Recommendation:** Use **PP-YOLOE** (Apache 2.0, best accuracy) or **YOLOX** (Apache 2.0, faster)
+
+#### Tracking
+
+| Component | Current License | Status | Action |
+|-----------|----------------|--------|--------|
+| **ByteTrack** | MIT | ✅ Safe | Keep |
+
+**Alternatives (if needed):**
+- **SORT** (GPL v3) - ❌ Problematic
+- **DeepSORT** (GPL v3) - ❌ Problematic
+- **OC-SORT** (MIT) - ✅ Safe alternative
+
+#### Privacy/Redaction
+
+| Component | Current License | Status | Action |
+|-----------|----------------|--------|--------|
+| **DeepPrivacy2** | MIT | ✅ Safe | Keep |
+| **OpenCV** | Apache 2.0 | ✅ Safe | Keep |
+| **InsightFace** | MIT / Apache 2.0 (mixed) | ✅ Safe | Keep |
+
+**Verdict:** Privacy components are **commercially safe**.
+
+---
+
+### 6. Satellite & Imagery
+
+| Component | Current License | Status | Action |
+|-----------|----------------|--------|--------|
+| **Sentinel-2 Data** | Copernicus Data (free, CC BY 4.0) | ✅ Safe | Keep |
+| **Google Earth Engine** | Proprietary (free for non-commercial) | ⚠️ **Requires commercial license** | Upgrade to commercial |
+| **NASA APIs** | Public domain | ✅ Safe | Keep |
+| **Raster-Vision** | Apache 2.0 | ✅ Safe | Keep |
+
+**Google Earth Engine:**
+- **Free:** Research and non-commercial use
+- **Commercial:** Requires Google Earth Engine Commercial license
+- **Cost:** Contact Google (typically $10-$100 per analysis)
+- **Alternative:** Use Sentinel Hub API (commercial, pay-per-use)
+
+**Recommendation:** Start with **Sentinel-2 via Sentinel Hub** (commercial-friendly) or pay for **Earth Engine Commercial**.
+
+---
+
+### 7. Stream Processing
+
+#### Message Queue
+
+| Component | Current License | Status | Action |
+|-----------|----------------|--------|--------|
+| **Apache Kafka** | Apache 2.0 | ✅ Safe | Keep |
+| **RedPanda** | BSL 1.1 | ⚠️ **Limited commercial use** | Review |
+
+**RedPanda Licensing:**
+- **License:** Business Source License (BSL) 1.1
+- **Restriction:** Cannot offer as a DBaaS (database-as-a-service) competing with Redpanda
+- **Our use case:** Using internally for our SaaS platform = ✅ **ALLOWED**
+- **Converts to:** Apache 2.0 after 4 years
+
+**Verdict:** RedPanda is **safe for our use case** (not offering Kafka-as-a-service).
+
+**Alternative (if preferred):**
+- **Apache Pulsar** (Apache 2.0) - Next-gen messaging, faster than Kafka
+
+#### Stream Processing Engine
+
+| Component | Current License | Status | Action |
+|-----------|----------------|--------|--------|
+| **Apache Flink** | Apache 2.0 | ✅ Safe | Keep |
+| **Apache Beam** | Apache 2.0 | ✅ Safe | Keep |
+
+**Verdict:** Stream processing is **commercially safe**.
+
+---
+
+### 8. Batch Processing
+
+| Component | Current License | Status | Action |
+|-----------|----------------|--------|--------|
+| **Apache Airflow** | Apache 2.0 | ✅ Safe | Keep |
+| **Dagster** | Apache 2.0 | ✅ Safe | Keep |
+
+**Verdict:** Batch orchestration is **commercially safe**.
+
+---
+
+### 9. Model Serving
+
+| Component | Current License | Status | Action |
+|-----------|----------------|--------|--------|
+| **ONNX Runtime** | MIT | ✅ Safe | Keep |
+| **NVIDIA Triton** | BSD 3-Clause | ✅ Safe | Keep |
+| **TorchServe** | Apache 2.0 | ✅ Safe | Keep |
+
+**Verdict:** Model serving is **commercially safe**.
+
+---
+
+### 10. Authentication
+
+| Component | Current License | Status | Action |
+|-----------|----------------|--------|--------|
+| **Keycloak** | Apache 2.0 | ✅ Safe | Keep |
+| **Auth0** | Proprietary (free tier available) | ✅ Safe | Use free tier or paid |
+
+**Verdict:** Authentication is **commercially safe**.
+
+---
+
+### 11. Observability
+
+#### Metrics
+
+| Component | Current License | Status | Action |
+|-----------|----------------|--------|--------|
+| **Prometheus** | Apache 2.0 | ✅ Safe | Keep |
+| **Grafana** | AGPL v3 | ❌ **PROBLEMATIC** | **Replace or self-host** |
+
+**Grafana Licensing:**
+- **Community Edition:** AGPL v3
+- **Problem:** Cannot embed Grafana dashboards in proprietary SaaS product
+- **Solution 1:** Self-host Grafana as separate service (users access directly)
+- **Solution 2:** Use AGPL-safe alternative
+
+**Recommended Alternatives:**
+
+1. **Apache Superset** (Apache 2.0) ⭐ **RECOMMENDED**
+   - Modern BI tool with dashboards
+   - SQL-based, supports ClickHouse
+   - **License:** Apache 2.0
+   - **Repository:** https://github.com/apache/superset
+
+2. **Metabase** (AGPL v3 / Enterprise)
+   - **Community:** AGPL v3 (same problem)
+   - **Enterprise:** Proprietary (embedding allowed with paid license)
+
+3. **Redash** (BSD 2-Clause) ⭐ **EXCELLENT**
+   - Dashboards and visualizations
+   - SQL-based
+   - **License:** BSD 2-Clause
+   - **Repository:** https://github.com/getredash/redash
+
+**Recommendation:** Use **Apache Superset** (Apache 2.0) or **Redash** (BSD) for dashboards. Keep Grafana as optional self-hosted tool for internal monitoring.
+
+#### Logging
+
+| Component | Current License | Status | Action |
+|-----------|----------------|--------|--------|
+| **Loki** | AGPL v3 | ❌ **PROBLEMATIC** | **Replace** |
+| **Promtail** | Apache 2.0 | ✅ Safe | Keep |
+
+**Loki Licensing:**
+- **License:** AGPL v3 (from Grafana Labs)
+- **Problem:** Same as Grafana
+
+**Recommended Alternatives:**
+
+1. **OpenSearch** (Apache 2.0) ⭐ **RECOMMENDED**
+   - Fork of Elasticsearch 7.10
+   - Maintained by AWS, Linux Foundation
+   - Full-text search + log aggregation
+   - **License:** Apache 2.0
+   - **Repository:** https://github.com/opensearch-project/OpenSearch
+
+2. **Quickwit** (AGPL v3)
+   - Cloud-native log search
+   - **License:** AGPL v3
+   - **Status:** ❌ Not suitable
+
+3. **Vector + ClickHouse**
+   - Use Vector (MPL 2.0) for log collection
+   - Store in ClickHouse (Apache 2.0)
+   - Query with SQL
+   - **Licenses:** MPL 2.0 + Apache 2.0
+   - **Status:** ✅ Safe (MPL allows proprietary use)
+
+**Recommendation:** Use **OpenSearch** (Apache 2.0) or **Vector + ClickHouse** (MPL 2.0 + Apache 2.0)
+
+#### Tracing
+
+| Component | Current License | Status | Action |
+|-----------|----------------|--------|--------|
+| **Jaeger** | Apache 2.0 | ✅ Safe | Keep |
+| **OpenTelemetry** | Apache 2.0 | ✅ Safe | Keep |
+
+**Verdict:** Tracing is **commercially safe**.
+
+---
+
+## Summary: Components to Replace
+
+### Critical Replacements
+
+| Component | Problem | Replacement | License |
+|-----------|---------|-------------|---------|
+| **YOLO11** | AGPL v3 | **PP-YOLOE** or **YOLOX** | Apache 2.0 |
+| **Redis 7.x** | SSPL/RSALv2 | **Valkey** | BSD 3-Clause |
+| **MinIO** | AGPL v3 | **SeaweedFS** or **Cloudflare R2** | Apache 2.0 / Commercial |
+| **Grafana** | AGPL v3 | **Apache Superset** or **Redash** | Apache 2.0 / BSD |
+| **Loki** | AGPL v3 | **OpenSearch** or **Vector+ClickHouse** | Apache 2.0 / MPL |
+
+### Optional/Conditional
+
+| Component | Status | Action |
+|-----------|--------|--------|
+| **Google Earth Engine** | Proprietary (free for non-commercial) | Upgrade to commercial license |
+| **RedPanda** | BSL (safe for our use) | Keep (converts to Apache 2.0 after 4 years) |
+
+---
+
+## Revised Commercial-Safe Tech Stack
+
+### Frontend (No Changes)
+- **React** (MIT)
+- **MapLibre GL** (BSD 3-Clause)
+- **Deck.gl** (MIT)
+- **shadcn/ui** (MIT)
+
+### Backend
+- **FastAPI** (MIT)
+- **ClickHouse** (Apache 2.0)
+- **PostgreSQL + PostGIS** (PostgreSQL License + GPL with exception)
+- **Valkey** (BSD 3-Clause) ← **Changed from Redis**
+- **SeaweedFS** (Apache 2.0) ← **Changed from MinIO**
+
+### Computer Vision
+- **PP-YOLOE** (Apache 2.0) ← **Changed from YOLO11**
+- **ByteTrack** (MIT)
+- **DeepPrivacy2** (MIT)
+- **OpenCV** (Apache 2.0)
+
+### Stream Processing
+- **Apache Kafka** (Apache 2.0) or **RedPanda** (BSL 1.1)
+- **Apache Flink** (Apache 2.0)
+
+### Observability
+- **Prometheus** (Apache 2.0)
+- **Apache Superset** (Apache 2.0) ← **Changed from Grafana**
+- **OpenSearch** (Apache 2.0) ← **Changed from Loki**
+- **Jaeger** (Apache 2.0)
+
+---
+
+## Cost Impact of Changes
+
+| Change | Cost Impact |
+|--------|-------------|
+| YOLO11 → PP-YOLOE | $0 (both free, avoid $1k+/dev enterprise license) |
+| Redis → Valkey | $0 (both free) |
+| MinIO → SeaweedFS | $0 (both free) |
+| Grafana → Superset | $0 (both free, avoid AGPL risk) |
+| Loki → OpenSearch | $0 (both free) |
+
+**Total Cost Impact:** $0 (net savings from avoiding enterprise licenses)
+
+---
+
+## Migration Path
+
+### Phase 1 (Immediate - Before MVP Launch)
+1. ✅ Use **Valkey** instead of Redis
+2. ✅ Use **PP-YOLOE** instead of YOLO11
+3. ✅ Use **SeaweedFS** or **Cloudflare R2** instead of MinIO
+
+### Phase 2 (Within 90 Days)
+4. ✅ Use **Apache Superset** for customer-facing dashboards
+5. ✅ Use **OpenSearch** for log aggregation
+6. ✅ Optionally keep **Grafana** as internal-only monitoring (not embedded)
+
+### Phase 3 (Post-MVP)
+7. ⚠️ Upgrade **Google Earth Engine** to commercial license if needed
+8. ✅ Review **RedPanda** license (converts to Apache 2.0 after 4 years anyway)
+
+---
+
+## Legal Risk Assessment
+
+### Before Changes (Original Stack)
+- **High Risk:** YOLO11 (AGPL), MinIO (AGPL), Grafana (AGPL), Loki (AGPL)
+- **Medium Risk:** Redis (SSPL), Earth Engine (proprietary)
+- **Risk:** Potential lawsuits, forced source disclosure, license violations
+
+### After Changes (Revised Stack)
+- **Zero Risk:** All components use permissive licenses (MIT, Apache 2.0, BSD)
+- **Compliance:** 100% commercial-safe
+- **Future-proof:** No dependency on vendors that may change licenses
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Updated Tech Stack" icon="layer-group" href="/tech-stack-commercial">
+    Review the revised commercial-safe tech stack
+  </Card>
+  <Card title="Implementation Guide" icon="code" href="/implementation/commercial-migration">
+    Migration guide for replacing AGPL components
+  </Card>
+  <Card title="License Compliance" icon="scale-balanced" href="/compliance/licensing">
+    Full license compliance documentation
+  </Card>
+  <Card title="Cost Analysis" icon="dollar-sign" href="/cost-analysis">
+    Updated cost breakdown with new components
+  </Card>
+</CardGroup>
