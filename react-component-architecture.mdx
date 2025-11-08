@@ -1,0 +1,1894 @@
+---
+title: "React Component Architecture"
+description: "Complete component hierarchy, file structure, and implementation patterns for Evoteli's React frontend"
+---
+
+# React Component Architecture
+
+**Purpose:** This document provides the complete blueprint for implementing Evoteli's React frontend, synthesizing research from shadcn/ui, Vercel AI SDK, MapLibre GL, and property tech best practices.
+
+**Target:** Next.js 15 App Router with React Server Components, TypeScript, Tailwind CSS v4
+
+---
+
+## Table of Contents
+
+1. [Component Hierarchy](#component-hierarchy)
+2. [File Structure](#file-structure)
+3. [Core Components](#core-components)
+4. [Feature Modules](#feature-modules)
+5. [Data Flow Architecture](#data-flow-architecture)
+6. [Integration Patterns](#integration-patterns)
+7. [Code Scaffolding](#code-scaffolding)
+8. [Performance Optimization](#performance-optimization)
+
+---
+
+## Component Hierarchy
+
+### Complete Component Tree
+
+```
+app/                                    # Next.js 15 App Router
+├── (auth)/                            # Auth route group
+│   ├── login/
+│   │   └── page.tsx                   # <LoginPage />
+│   └── signup/
+│       └── page.tsx                   # <SignupPage />
+│
+├── (dashboard)/                       # Authenticated route group
+│   ├── layout.tsx                     # <DashboardLayout />
+│   │   ├── <AppShell />
+│   │   │   ├── <TopNav />
+│   │   │   │   ├── <Logo />
+│   │   │   │   ├── <AISearchBar />   # Vercel AI SDK integration
+│   │   │   │   ├── <NotificationBell />
+│   │   │   │   └── <UserMenu />
+│   │   │   ├── <SideNav />
+│   │   │   │   ├── <NavItem />
+│   │   │   │   └── <ProductSwitcher />
+│   │   │   └── <MainContent />
+│   │
+│   ├── map/
+│   │   └── page.tsx                   # <MapPage />
+│   │       ├── <InteractiveMap />     # MapLibre GL wrapper
+│   │       │   ├── <MapContainer />
+│   │       │   ├── <LayerControls />
+│   │       │   │   ├── <LayerToggle />
+│   │       │   │   └── <BasemapSwitcher />
+│   │       │   ├── <DrawingTools />
+│   │       │   │   ├── <PolygonTool />
+│   │       │   │   ├── <RadiusTool />
+│   │       │   │   └── <ClearButton />
+│   │       │   ├── <PropertyMarkers />  # Clustered markers
+│   │       │   ├── <HeatmapLayer />
+│   │       │   └── <3DBuildingsLayer />
+│   │       │
+│   │       ├── <PropertyPanel />      # Right sidebar
+│   │       │   ├── <PropertyHeader />
+│   │       │   ├── <ProductTabs />    # RoofIQ, SolarFit, etc.
+│   │       │   │   ├── <RoofIQTab />
+│   │       │   │   ├── <SolarFitTab />
+│   │       │   │   ├── <DrivewayProTab />
+│   │       │   │   └── <PermitScopeTab />
+│   │       │   ├── <ConfidenceScore />
+│   │       │   └── <ExportActions />
+│   │       │
+│   │       └── <SearchResults />      # Bottom drawer
+│   │           ├── <ResultsHeader />
+│   │           ├── <FilterBar />
+│   │           ├── <PropertyCards />
+│   │           └── <Pagination />
+│   │
+│   ├── audiences/
+│   │   └── page.tsx                   # <AudiencesPage />
+│   │       ├── <AudienceList />
+│   │       │   ├── <AudienceCard />
+│   │       │   └── <CreateAudienceButton />
+│   │       └── <AudienceBuilder />    # Modal/drawer
+│   │           ├── <Step1_Query />
+│   │           ├── <Step2_Filters />
+│   │           ├── <Step3_Review />
+│   │           └── <Step4_Export />
+│   │               ├── <GoogleAdsExport />
+│   │               ├── <CSVExport />
+│   │               └── <PDFExport />
+│   │
+│   ├── alerts/
+│   │   └── page.tsx                   # <AlertsPage />
+│   │       ├── <AlertList />
+│   │       ├── <CreateAlertForm />
+│   │       └── <AlertPreview />
+│   │
+│   ├── analytics/
+│   │   └── page.tsx                   # <AnalyticsPage />
+│   │       ├── <MetricsGrid />
+│   │       │   └── <MetricCard />
+│   │       ├── <UsageChart />
+│   │       └── <ROICalculator />
+│   │
+│   └── settings/
+│       └── page.tsx                   # <SettingsPage />
+│           ├── <SettingsTabs />
+│           ├── <ProfileSettings />
+│           ├── <BillingSettings />
+│           └── <IntegrationSettings />
+│
+└── api/                               # API routes
+    ├── search/
+    │   └── route.ts                   # POST /api/search (AI-powered)
+    ├── properties/
+    │   └── route.ts                   # GET /api/properties
+    ├── audiences/
+    │   └── route.ts                   # CRUD for audiences
+    └── chat/
+        └── route.ts                   # Vercel AI SDK streaming
+```
+
+### Component Relationships
+
+```
+┌─────────────────────────────────────────────────────┐
+│                   <DashboardLayout>                 │
+│  ┌───────────────────────────────────────────────┐  │
+│  │              <TopNav>                         │  │
+│  │  ┌──────────────┐  ┌──────────────┐          │  │
+│  │  │ <AISearchBar>│  │ <UserMenu>   │          │  │
+│  │  └──────────────┘  └──────────────┘          │  │
+│  └───────────────────────────────────────────────┘  │
+│                                                      │
+│  ┌────────┐  ┌──────────────────────────────────┐  │
+│  │<SideNav│  │      <MainContent>               │  │
+│  │        │  │                                   │  │
+│  │ Map    │  │  ┌────────────────────────────┐  │  │
+│  │ Audiences  │  │   <InteractiveMap>        │  │  │
+│  │ Alerts │  │  │   (70% width)              │  │  │
+│  │ Analytics  │  └────────────────────────────┘  │  │
+│  │ Settings│  │                                   │  │
+│  │        │  │  ┌────────────────────────────┐  │  │
+│  └────────┘  │  │   <PropertyPanel>          │  │  │
+│              │  │   (30% width, right)       │  │  │
+│              │  └────────────────────────────┘  │  │
+│              │                                   │  │
+│              │  ┌────────────────────────────┐  │  │
+│              │  │   <SearchResults>          │  │  │
+│              │  │   (Bottom drawer)          │  │  │
+│              │  └────────────────────────────┘  │  │
+│              └──────────────────────────────────┘  │
+└─────────────────────────────────────────────────────┘
+
+Data Flow:
+<AISearchBar> → useAI() hook → API → <InteractiveMap> updates
+<InteractiveMap> → onClick → <PropertyPanel> opens
+<DrawingTools> → territory drawn → <SearchResults> filtered
+```
+
+---
+
+## File Structure
+
+### Next.js 15 App Router Layout
+
+```
+evoteli-frontend/
+├── app/
+│   ├── layout.tsx                     # Root layout with providers
+│   ├── page.tsx                       # Landing page (public)
+│   ├── globals.css                    # Tailwind imports
+│   │
+│   ├── (auth)/
+│   │   ├── layout.tsx                 # Auth layout (centered forms)
+│   │   ├── login/page.tsx
+│   │   └── signup/page.tsx
+│   │
+│   ├── (dashboard)/
+│   │   ├── layout.tsx                 # Dashboard layout with nav
+│   │   ├── map/page.tsx
+│   │   ├── audiences/page.tsx
+│   │   ├── alerts/page.tsx
+│   │   ├── analytics/page.tsx
+│   │   └── settings/page.tsx
+│   │
+│   └── api/
+│       ├── search/route.ts
+│       ├── properties/route.ts
+│       ├── audiences/route.ts
+│       └── chat/route.ts              # Vercel AI SDK endpoint
+│
+├── components/
+│   ├── ui/                            # shadcn/ui components (copy-pasted)
+│   │   ├── button.tsx
+│   │   ├── input.tsx
+│   │   ├── card.tsx
+│   │   ├── dialog.tsx
+│   │   ├── dropdown-menu.tsx
+│   │   ├── tabs.tsx
+│   │   ├── tooltip.tsx
+│   │   ├── badge.tsx
+│   │   ├── slider.tsx
+│   │   └── ...                        # 50+ shadcn components
+│   │
+│   ├── layout/
+│   │   ├── app-shell.tsx
+│   │   ├── top-nav.tsx
+│   │   ├── side-nav.tsx
+│   │   ├── nav-item.tsx
+│   │   └── user-menu.tsx
+│   │
+│   ├── map/
+│   │   ├── interactive-map.tsx
+│   │   ├── map-container.tsx
+│   │   ├── layer-controls.tsx
+│   │   ├── drawing-tools.tsx
+│   │   ├── property-markers.tsx
+│   │   ├── heatmap-layer.tsx
+│   │   ├── buildings-layer.tsx
+│   │   └── map-legend.tsx
+│   │
+│   ├── search/
+│   │   ├── ai-search-bar.tsx          # Vercel AI SDK integration
+│   │   ├── search-suggestions.tsx
+│   │   ├── search-history.tsx
+│   │   └── filter-bar.tsx
+│   │
+│   ├── property/
+│   │   ├── property-panel.tsx
+│   │   ├── property-header.tsx
+│   │   ├── product-tabs.tsx
+│   │   ├── roof-iq-tab.tsx
+│   │   ├── solar-fit-tab.tsx
+│   │   ├── driveway-pro-tab.tsx
+│   │   ├── permit-scope-tab.tsx
+│   │   ├── confidence-score.tsx
+│   │   └── export-actions.tsx
+│   │
+│   ├── audience/
+│   │   ├── audience-list.tsx
+│   │   ├── audience-card.tsx
+│   │   ├── audience-builder.tsx
+│   │   ├── google-ads-export.tsx
+│   │   ├── csv-export.tsx
+│   │   └── pdf-export.tsx
+│   │
+│   └── analytics/
+│       ├── metrics-grid.tsx
+│       ├── metric-card.tsx
+│       ├── usage-chart.tsx
+│       └── roi-calculator.tsx
+│
+├── lib/
+│   ├── api/
+│   │   ├── client.ts                  # Axios/Fetch wrapper
+│   │   ├── properties.ts              # Property API functions
+│   │   ├── audiences.ts               # Audience API functions
+│   │   └── search.ts                  # AI search API
+│   │
+│   ├── hooks/
+│   │   ├── use-map.ts                 # MapLibre GL hooks
+│   │   ├── use-properties.ts          # TanStack Query hooks
+│   │   ├── use-search.ts              # AI search hook
+│   │   ├── use-debounce.ts
+│   │   ├── use-local-storage.ts
+│   │   └── use-media-query.ts
+│   │
+│   ├── stores/
+│   │   ├── map-store.ts               # Zustand store for map state
+│   │   ├── property-store.ts          # Selected property state
+│   │   ├── filter-store.ts            # Active filters
+│   │   └── user-store.ts              # User preferences
+│   │
+│   ├── utils/
+│   │   ├── cn.ts                      # Tailwind class merger
+│   │   ├── format.ts                  # Number/date formatters
+│   │   ├── validation.ts              # Zod schemas
+│   │   └── geo.ts                     # GeoJSON utilities
+│   │
+│   └── constants/
+│       ├── map-styles.ts              # MapLibre style configs
+│       ├── colors.ts                  # Design system colors
+│       └── products.ts                # Product definitions
+│
+├── types/
+│   ├── property.ts
+│   ├── audience.ts
+│   ├── user.ts
+│   └── map.ts
+│
+├── public/
+│   ├── images/
+│   ├── icons/
+│   └── fonts/
+│
+├── .env.local
+├── .env.example
+├── next.config.mjs
+├── tailwind.config.ts
+├── tsconfig.json
+├── package.json
+└── README.md
+```
+
+---
+
+## Core Components
+
+### 1. AISearchBar Component
+
+**Purpose:** Natural language search powered by GPT-4 via Vercel AI SDK
+
+**File:** `components/search/ai-search-bar.tsx`
+
+**Props:**
+```typescript
+interface AISearchBarProps {
+  onSearch: (query: string, filters: PropertyFilters) => void
+  placeholder?: string
+  className?: string
+}
+```
+
+**State:**
+```typescript
+const [input, setInput] = useState('')
+const [isLoading, setIsLoading] = useState(false)
+const [suggestions, setSuggestions] = useState<string[]>([])
+const [history, setHistory] = useState<string[]>([])
+```
+
+**Hooks:**
+```typescript
+// Vercel AI SDK for streaming responses
+import { useChat } from 'ai/react'
+
+const { messages, append, isLoading } = useChat({
+  api: '/api/chat',
+  onFinish: (message) => {
+    // Parse structured output into filters
+    const filters = parseAIResponse(message.content)
+    onSearch(input, filters)
+  }
+})
+
+// Debounce for suggestions
+const debouncedInput = useDebounce(input, 300)
+```
+
+**Key Features:**
+- Autocomplete suggestions (e.g., "Atlanta homes with..." → "...good roof condition")
+- Natural language → structured filters (GPT-4 converts "old roofs" → `roof_age > 20`)
+- Search history stored in localStorage
+- Voice input support (Web Speech API)
+
+**Example Usage:**
+```tsx
+<AISearchBar
+  onSearch={(query, filters) => {
+    mapStore.setFilters(filters)
+    mapStore.flyTo(filters.bounds)
+  }}
+  placeholder="Try: 'Atlanta homes with south-facing roofs and solar potential'"
+/>
+```
+
+---
+
+### 2. InteractiveMap Component
+
+**Purpose:** Main map view using MapLibre GL JS with territory drawing and clustering
+
+**File:** `components/map/interactive-map.tsx`
+
+**Props:**
+```typescript
+interface InteractiveMapProps {
+  properties: Property[]
+  selectedProperty?: Property | null
+  onPropertyClick: (property: Property) => void
+  filters: PropertyFilters
+  className?: string
+}
+```
+
+**State (Zustand store):**
+```typescript
+// lib/stores/map-store.ts
+interface MapStore {
+  // View state
+  viewport: { latitude: number; longitude: number; zoom: number }
+  basemap: 'satellite' | 'streets' | 'terrain'
+
+  // Layers
+  activeLayers: Set<LayerType>
+  heatmapIntensity: number
+  show3DBuildings: boolean
+
+  // Drawing
+  drawnTerritory: GeoJSON.Polygon | null
+  drawMode: 'polygon' | 'radius' | null
+
+  // Actions
+  setViewport: (viewport: Viewport) => void
+  setBasemap: (basemap: string) => void
+  toggleLayer: (layer: LayerType) => void
+  setDrawnTerritory: (territory: GeoJSON.Polygon) => void
+}
+
+export const useMapStore = create<MapStore>((set) => ({ ... }))
+```
+
+**Hooks:**
+```typescript
+// Custom hook for MapLibre GL
+import { useMap } from '@/lib/hooks/use-map'
+
+const { mapRef, isLoaded } = useMap({
+  initialViewState: {
+    latitude: 33.7490,
+    longitude: -84.3880,
+    zoom: 12
+  },
+  mapStyle: 'https://api.maptiler.com/maps/satellite/style.json?key=...'
+})
+```
+
+**Key Features:**
+- **Clustering:** Supercluster for 1,000+ properties
+- **Vector Tiles:** PMTiles for fast rendering
+- **Drawing Tools:** Terra Draw for polygon/radius territory selection
+- **3D Buildings:** Extrusion based on building height
+- **Heatmaps:** Intensity-based visualization for scores
+
+**Example Usage:**
+```tsx
+<InteractiveMap
+  properties={properties}
+  selectedProperty={selectedProperty}
+  onPropertyClick={(property) => {
+    setSelectedProperty(property)
+    propertyPanelRef.current?.open()
+  }}
+  filters={filters}
+/>
+```
+
+**Implementation Details:**
+```typescript
+// Clustering with Supercluster
+import Supercluster from 'supercluster'
+
+const cluster = new Supercluster({
+  radius: 40,
+  maxZoom: 16,
+  minZoom: 0,
+  minPoints: 3
+})
+
+cluster.load(
+  properties.map(p => ({
+    type: 'Feature',
+    properties: { id: p.id, ...p },
+    geometry: {
+      type: 'Point',
+      coordinates: [p.longitude, p.latitude]
+    }
+  }))
+)
+
+// Get clusters for current viewport
+const clusters = cluster.getClusters(bounds, zoom)
+```
+
+---
+
+### 3. PropertyPanel Component
+
+**Purpose:** Right sidebar showing detailed property information with product tabs
+
+**File:** `components/property/property-panel.tsx`
+
+**Props:**
+```typescript
+interface PropertyPanelProps {
+  property: Property | null
+  isOpen: boolean
+  onClose: () => void
+}
+```
+
+**State:**
+```typescript
+const [activeTab, setActiveTab] = useState<ProductType>('roof-iq')
+const [isExporting, setIsExporting] = useState(false)
+```
+
+**Tabs:**
+1. **RoofIQ** - Roof condition, age, material, replacement cost
+2. **SolarFit** - Solar potential, panel layout, ROI calculator
+3. **DrivewayPro** - Driveway condition, sealing needs
+4. **PermitScope** - Recent permits, construction activity
+
+**Example Usage:**
+```tsx
+<PropertyPanel
+  property={selectedProperty}
+  isOpen={isPanelOpen}
+  onClose={() => setSelectedProperty(null)}
+/>
+```
+
+**Tab Structure:**
+```tsx
+<Tabs value={activeTab} onValueChange={setActiveTab}>
+  <TabsList>
+    <TabsTrigger value="roof-iq">
+      <RoofIcon /> RoofIQ
+    </TabsTrigger>
+    <TabsTrigger value="solar-fit">
+      <SolarIcon /> SolarFit
+    </TabsTrigger>
+    {/* ... */}
+  </TabsList>
+
+  <TabsContent value="roof-iq">
+    <RoofIQTab property={property} />
+  </TabsContent>
+
+  <TabsContent value="solar-fit">
+    <SolarFitTab property={property} />
+  </TabsContent>
+</Tabs>
+```
+
+**RoofIQTab Component:**
+```tsx
+function RoofIQTab({ property }: { property: Property }) {
+  const roofData = property.roofiq
+
+  return (
+    <div className="space-y-4">
+      <ConfidenceScore score={roofData.confidence} />
+
+      <MetricRow label="Condition" value={roofData.condition} color={getConditionColor(roofData.condition)} />
+      <MetricRow label="Age" value={`${roofData.age_years} years`} />
+      <MetricRow label="Material" value={roofData.material} />
+      <MetricRow label="Area" value={`${roofData.area_sqft} sq ft`} />
+
+      <Card>
+        <CardHeader>Replacement Cost Estimate</CardHeader>
+        <CardContent>
+          <PriceRange low={roofData.cost_low} high={roofData.cost_high} />
+        </CardContent>
+      </Card>
+
+      <ExportActions property={property} product="roof-iq" />
+    </div>
+  )
+}
+```
+
+---
+
+### 4. AudienceBuilder Component
+
+**Purpose:** Multi-step wizard for creating and exporting audiences
+
+**File:** `components/audience/audience-builder.tsx`
+
+**Steps:**
+1. **Query** - AI search or manual filters
+2. **Filters** - Refine with sliders/toggles
+3. **Review** - Preview results (count, sample properties)
+4. **Export** - Choose format (Google Ads, CSV, PDF)
+
+**State:**
+```typescript
+const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
+const [audienceName, setAudienceName] = useState('')
+const [query, setQuery] = useState('')
+const [filters, setFilters] = useState<PropertyFilters>({})
+const [previewCount, setPreviewCount] = useState(0)
+const [exportFormat, setExportFormat] = useState<'google-ads' | 'csv' | 'pdf'>('google-ads')
+```
+
+**Form Validation (Zod):**
+```typescript
+import { z } from 'zod'
+
+const audienceSchema = z.object({
+  name: z.string().min(3, 'Name must be at least 3 characters'),
+  query: z.string().optional(),
+  filters: z.object({
+    roof_condition: z.enum(['excellent', 'good', 'fair', 'poor']).optional(),
+    solar_score: z.number().min(0).max(100).optional(),
+    // ... more filters
+  }),
+  export_format: z.enum(['google-ads', 'csv', 'pdf'])
+})
+
+type AudienceFormData = z.infer<typeof audienceSchema>
+```
+
+**Example Usage:**
+```tsx
+<AudienceBuilder
+  isOpen={isBuilderOpen}
+  onClose={() => setIsBuilderOpen(false)}
+  onComplete={(audience) => {
+    toast.success(`Audience "${audience.name}" created with ${audience.count} properties`)
+  }}
+/>
+```
+
+---
+
+## Feature Modules
+
+### RoofIQ Module
+
+**Files:**
+- `components/property/roof-iq-tab.tsx` - Display component
+- `lib/api/roofiq.ts` - API functions
+- `types/roofiq.ts` - TypeScript types
+
+**Type Definition:**
+```typescript
+// types/roofiq.ts
+export interface RoofIQData {
+  condition: 'excellent' | 'good' | 'fair' | 'poor'
+  confidence: number // 0-100
+  age_years: number
+  material: 'asphalt' | 'metal' | 'tile' | 'slate' | 'wood' | 'unknown'
+  area_sqft: number
+  slope_degrees: number
+  complexity: 'simple' | 'moderate' | 'complex'
+  cost_low: number
+  cost_high: number
+  imagery_date: string // ISO date
+  analysis_date: string // ISO date
+}
+```
+
+**API Function:**
+```typescript
+// lib/api/roofiq.ts
+export async function getRoofIQData(propertyId: string): Promise<RoofIQData> {
+  const response = await apiClient.get<RoofIQData>(`/api/properties/${propertyId}/roofiq`)
+  return response.data
+}
+```
+
+**Display Component:**
+```tsx
+// components/property/roof-iq-tab.tsx
+export function RoofIQTab({ property }: { property: Property }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['roofiq', property.id],
+    queryFn: () => getRoofIQData(property.id)
+  })
+
+  if (isLoading) return <Skeleton className="h-64" />
+  if (!data) return <ErrorState message="Failed to load roof data" />
+
+  return (
+    <div className="space-y-6">
+      {/* Confidence badge */}
+      <ConfidenceScore score={data.confidence} />
+
+      {/* Visual condition indicator */}
+      <ConditionBadge
+        condition={data.condition}
+        icon={<RoofIcon />}
+      />
+
+      {/* Metrics grid */}
+      <MetricsGrid>
+        <MetricCard label="Age" value={`${data.age_years} years`} />
+        <MetricCard label="Material" value={data.material} />
+        <MetricCard label="Area" value={`${data.area_sqft} sq ft`} />
+        <MetricCard label="Slope" value={`${data.slope_degrees}°`} />
+      </MetricsGrid>
+
+      {/* Replacement cost estimator */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Replacement Cost Estimate</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PriceRange
+            low={data.cost_low}
+            high={data.cost_high}
+            formatter={(val) => `$${val.toLocaleString()}`}
+          />
+          <p className="text-sm text-muted-foreground mt-2">
+            Based on {data.complexity} roof complexity
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Satellite imagery preview */}
+      <ImageryPreview
+        date={data.imagery_date}
+        thumbnailUrl={`/api/properties/${property.id}/imagery/roof`}
+      />
+    </div>
+  )
+}
+```
+
+---
+
+### SolarFit Module
+
+**Type Definition:**
+```typescript
+// types/solarfit.ts
+export interface SolarFitData {
+  score: number // 0-100
+  confidence: number
+  annual_kwh_potential: number
+  panel_count: number
+  panel_layout: GeoJSON.MultiPolygon
+  system_size_kw: number
+  estimated_cost: number
+  annual_savings: number
+  roi_years: number
+  shading_analysis: {
+    spring: number // 0-1 (% unshaded)
+    summer: number
+    fall: number
+    winter: number
+  }
+  orientation: 'south' | 'southeast' | 'southwest' | 'east' | 'west'
+  tilt_degrees: number
+}
+```
+
+**Display Component:**
+```tsx
+export function SolarFitTab({ property }: { property: Property }) {
+  const { data } = useQuery({
+    queryKey: ['solarfit', property.id],
+    queryFn: () => getSolarFitData(property.id)
+  })
+
+  if (!data) return null
+
+  return (
+    <div className="space-y-6">
+      <ConfidenceScore score={data.confidence} />
+
+      {/* Solar score visualization */}
+      <ScoreCard
+        score={data.score}
+        label="Solar Potential"
+        gradient="from-yellow-400 to-orange-500"
+      />
+
+      {/* Key metrics */}
+      <MetricsGrid>
+        <MetricCard
+          label="Annual Production"
+          value={`${data.annual_kwh_potential.toLocaleString()} kWh`}
+          icon={<BoltIcon />}
+        />
+        <MetricCard
+          label="System Size"
+          value={`${data.system_size_kw} kW`}
+        />
+        <MetricCard
+          label="Panel Count"
+          value={data.panel_count}
+        />
+        <MetricCard
+          label="ROI Period"
+          value={`${data.roi_years} years`}
+        />
+      </MetricsGrid>
+
+      {/* Interactive ROI calculator */}
+      <ROICalculator
+        systemCost={data.estimated_cost}
+        annualSavings={data.annual_savings}
+        incentives={0} // User can adjust
+      />
+
+      {/* Seasonal shading analysis */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Shading Analysis</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ShadingChart data={data.shading_analysis} />
+        </CardContent>
+      </Card>
+
+      {/* Panel layout visualization on mini-map */}
+      <PanelLayoutMap
+        roofPolygon={property.geometry}
+        panelLayout={data.panel_layout}
+      />
+    </div>
+  )
+}
+```
+
+---
+
+## Data Flow Architecture
+
+### State Management Strategy
+
+**Zustand for global UI state:**
+```typescript
+// lib/stores/map-store.ts
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+
+interface MapStore {
+  viewport: { latitude: number; longitude: number; zoom: number }
+  basemap: 'satellite' | 'streets' | 'terrain'
+  activeLayers: Set<string>
+  drawnTerritory: GeoJSON.Polygon | null
+
+  setViewport: (viewport: Viewport) => void
+  setBasemap: (basemap: string) => void
+  toggleLayer: (layer: string) => void
+  setDrawnTerritory: (territory: GeoJSON.Polygon | null) => void
+  clearDrawnTerritory: () => void
+}
+
+export const useMapStore = create<MapStore>()(
+  persist(
+    (set, get) => ({
+      viewport: { latitude: 33.7490, longitude: -84.3880, zoom: 12 },
+      basemap: 'satellite',
+      activeLayers: new Set(['parcels', 'roofs']),
+      drawnTerritory: null,
+
+      setViewport: (viewport) => set({ viewport }),
+      setBasemap: (basemap) => set({ basemap }),
+      toggleLayer: (layer) => {
+        const layers = new Set(get().activeLayers)
+        if (layers.has(layer)) {
+          layers.delete(layer)
+        } else {
+          layers.add(layer)
+        }
+        set({ activeLayers: layers })
+      },
+      setDrawnTerritory: (territory) => set({ drawnTerritory: territory }),
+      clearDrawnTerritory: () => set({ drawnTerritory: null })
+    }),
+    {
+      name: 'evoteli-map-state',
+      partialize: (state) => ({
+        basemap: state.basemap,
+        activeLayers: Array.from(state.activeLayers)
+      })
+    }
+  )
+)
+```
+
+**TanStack Query for server state:**
+```typescript
+// lib/hooks/use-properties.ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+
+export function useProperties(filters: PropertyFilters) {
+  return useQuery({
+    queryKey: ['properties', filters],
+    queryFn: () => getProperties(filters),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000, // 15 minutes (formerly cacheTime)
+  })
+}
+
+export function useProperty(id: string) {
+  return useQuery({
+    queryKey: ['property', id],
+    queryFn: () => getProperty(id),
+    staleTime: 10 * 60 * 1000
+  })
+}
+
+export function useCreateAudience() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (audience: CreateAudienceDTO) => createAudience(audience),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['audiences'] })
+    }
+  })
+}
+```
+
+### Data Flow Diagram
+
+```
+┌──────────────┐
+│   User       │
+│   Action     │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────────────────────────────┐
+│  Component (e.g., <AISearchBar>)     │
+│  - Calls hook (useSearch)            │
+│  - Optimistic update (optional)      │
+└──────┬───────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────────┐
+│  TanStack Query Hook                 │
+│  - Manages loading/error states      │
+│  - Caches responses                  │
+│  - Deduplicates requests             │
+└──────┬───────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────────┐
+│  API Client (lib/api/client.ts)      │
+│  - Adds auth headers                 │
+│  - Retries on failure                │
+│  - Transforms responses              │
+└──────┬───────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────────┐
+│  Next.js API Route (/api/*)          │
+│  - Validates request                 │
+│  - Calls backend FastAPI             │
+│  - Returns typed response            │
+└──────┬───────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────────┐
+│  FastAPI Backend                     │
+│  - Queries PostGIS/ClickHouse        │
+│  - Runs ML inference                 │
+│  - Returns JSON                      │
+└──────┬───────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────────┐
+│  Response bubbles back up             │
+│  TanStack Query updates cache        │
+│  Component re-renders with data      │
+└──────────────────────────────────────┘
+```
+
+### Example: AI Search Flow
+
+```typescript
+// 1. User types in search bar
+<AISearchBar onSearch={(query, filters) => { ... }} />
+
+// 2. Component calls Vercel AI SDK hook
+const { messages, append, isLoading } = useChat({
+  api: '/api/chat',
+  body: {
+    query: 'Atlanta homes with good roofs and solar potential'
+  }
+})
+
+// 3. API route streams GPT-4 response
+// app/api/chat/route.ts
+import { OpenAIStream, StreamingTextResponse } from 'ai'
+import OpenAI from 'openai'
+
+export async function POST(req: Request) {
+  const { query } = await req.json()
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4',
+    stream: true,
+    messages: [
+      {
+        role: 'system',
+        content: `You are a property search assistant. Convert natural language to structured filters.
+
+        Output JSON only:
+        {
+          "location": { "city": "Atlanta", "state": "GA" },
+          "roof_condition": ["excellent", "good"],
+          "solar_score_min": 70
+        }`
+      },
+      {
+        role: 'user',
+        content: query
+      }
+    ]
+  })
+
+  const stream = OpenAIStream(response)
+  return new StreamingTextResponse(stream)
+}
+
+// 4. Parse structured output and query properties
+const filters = JSON.parse(message.content)
+
+const { data: properties } = useProperties(filters)
+
+// 5. Update map with results
+useEffect(() => {
+  if (properties) {
+    mapStore.setViewport({
+      latitude: properties.center[1],
+      longitude: properties.center[0],
+      zoom: 12
+    })
+  }
+}, [properties])
+```
+
+---
+
+## Integration Patterns
+
+### 1. shadcn/ui Integration
+
+**Setup:**
+```bash
+npx shadcn-ui@latest init
+npx shadcn-ui@latest add button card input dialog tabs tooltip
+```
+
+**Usage Pattern:**
+```tsx
+// Import pre-built components
+import { Button } from '@/components/ui/button'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog'
+
+// Use with Tailwind variants
+<Button variant="default" size="lg" className="w-full">
+  Search Properties
+</Button>
+
+<Card className="hover:shadow-lg transition-shadow">
+  <CardHeader>
+    <CardTitle>RoofIQ Analysis</CardTitle>
+  </CardHeader>
+  <CardContent>
+    {/* ... */}
+  </CardContent>
+</Card>
+```
+
+**Customization:**
+```tsx
+// components/ui/button.tsx (shadcn generates this)
+const buttonVariants = cva(
+  "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        outline: "border border-input hover:bg-accent",
+        // Add custom variant
+        success: "bg-green-600 text-white hover:bg-green-700"
+      },
+      size: {
+        default: "h-10 px-4 py-2",
+        sm: "h-9 rounded-md px-3",
+        lg: "h-11 rounded-md px-8",
+        icon: "h-10 w-10"
+      }
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default"
+    }
+  }
+)
+```
+
+---
+
+### 2. MapLibre GL Integration
+
+**Setup:**
+```bash
+npm install maplibre-gl react-map-gl @deck.gl/react @deck.gl/layers supercluster
+```
+
+**Base Map Component:**
+```tsx
+// components/map/map-container.tsx
+'use client'
+
+import { useRef, useCallback } from 'react'
+import Map, { MapRef, Source, Layer } from 'react-map-gl/maplibre'
+import type { MapLayerMouseEvent } from 'maplibre-gl'
+import 'maplibre-gl/dist/maplibre-gl.css'
+
+interface MapContainerProps {
+  initialViewState: {
+    latitude: number
+    longitude: number
+    zoom: number
+  }
+  onMapClick?: (event: MapLayerMouseEvent) => void
+  children?: React.ReactNode
+}
+
+export function MapContainer({ initialViewState, onMapClick, children }: MapContainerProps) {
+  const mapRef = useRef<MapRef>(null)
+
+  const handleClick = useCallback((event: MapLayerMouseEvent) => {
+    onMapClick?.(event)
+  }, [onMapClick])
+
+  return (
+    <Map
+      ref={mapRef}
+      initialViewState={initialViewState}
+      style={{ width: '100%', height: '100%' }}
+      mapStyle="https://api.maptiler.com/maps/satellite/style.json?key=YOUR_KEY"
+      onClick={handleClick}
+      interactiveLayerIds={['property-markers']}
+      maxZoom={20}
+      minZoom={3}
+    >
+      {children}
+    </Map>
+  )
+}
+```
+
+**Clustered Markers:**
+```tsx
+// components/map/property-markers.tsx
+import { useMemo } from 'react'
+import { Marker } from 'react-map-gl/maplibre'
+import Supercluster from 'supercluster'
+
+export function PropertyMarkers({ properties, zoom, bounds, onPropertyClick }) {
+  const cluster = useMemo(() => {
+    const index = new Supercluster({
+      radius: 40,
+      maxZoom: 16
+    })
+
+    index.load(
+      properties.map(p => ({
+        type: 'Feature',
+        properties: p,
+        geometry: {
+          type: 'Point',
+          coordinates: [p.longitude, p.latitude]
+        }
+      }))
+    )
+
+    return index
+  }, [properties])
+
+  const clusters = useMemo(
+    () => cluster.getClusters(bounds, zoom),
+    [cluster, bounds, zoom]
+  )
+
+  return (
+    <>
+      {clusters.map((cluster) => {
+        const [longitude, latitude] = cluster.geometry.coordinates
+        const { cluster: isCluster, point_count: pointCount } = cluster.properties
+
+        if (isCluster) {
+          return (
+            <Marker
+              key={`cluster-${cluster.id}`}
+              latitude={latitude}
+              longitude={longitude}
+            >
+              <div
+                className="cluster-marker"
+                style={{
+                  width: `${30 + (pointCount / properties.length) * 40}px`,
+                  height: `${30 + (pointCount / properties.length) * 40}px`
+                }}
+                onClick={() => {
+                  const expansionZoom = Math.min(
+                    cluster.getClusterExpansionZoom(cluster.id),
+                    20
+                  )
+                  mapRef.current?.flyTo({
+                    center: [longitude, latitude],
+                    zoom: expansionZoom
+                  })
+                }}
+              >
+                {pointCount}
+              </div>
+            </Marker>
+          )
+        }
+
+        return (
+          <Marker
+            key={`property-${cluster.properties.id}`}
+            latitude={latitude}
+            longitude={longitude}
+            onClick={() => onPropertyClick(cluster.properties)}
+          >
+            <PropertyMarkerIcon property={cluster.properties} />
+          </Marker>
+        )
+      })}
+    </>
+  )
+}
+```
+
+**Heatmap Layer:**
+```tsx
+// components/map/heatmap-layer.tsx
+import { Layer, Source } from 'react-map-gl/maplibre'
+
+export function HeatmapLayer({ properties, metric = 'solar_score' }) {
+  const geojson = useMemo(() => ({
+    type: 'FeatureCollection',
+    features: properties.map(p => ({
+      type: 'Feature',
+      properties: {
+        value: p[metric]
+      },
+      geometry: {
+        type: 'Point',
+        coordinates: [p.longitude, p.latitude]
+      }
+    }))
+  }), [properties, metric])
+
+  return (
+    <Source id="heatmap-source" type="geojson" data={geojson}>
+      <Layer
+        id="heatmap-layer"
+        type="heatmap"
+        paint={{
+          'heatmap-weight': ['interpolate', ['linear'], ['get', 'value'], 0, 0, 100, 1],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 15, 3],
+          'heatmap-color': [
+            'interpolate',
+            ['linear'],
+            ['heatmap-density'],
+            0, 'rgba(33,102,172,0)',
+            0.2, 'rgb(103,169,207)',
+            0.4, 'rgb(209,229,240)',
+            0.6, 'rgb(253,219,199)',
+            0.8, 'rgb(239,138,98)',
+            1, 'rgb(178,24,43)'
+          ],
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 2, 15, 20],
+          'heatmap-opacity': 0.8
+        }}
+      />
+    </Source>
+  )
+}
+```
+
+---
+
+### 3. Vercel AI SDK Integration
+
+**Setup:**
+```bash
+npm install ai openai
+```
+
+**Chat Endpoint:**
+```typescript
+// app/api/chat/route.ts
+import { OpenAIStream, StreamingTextResponse } from 'ai'
+import OpenAI from 'openai'
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+})
+
+export const runtime = 'edge'
+
+export async function POST(req: Request) {
+  const { messages, query } = await req.json()
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4',
+    stream: true,
+    messages: [
+      {
+        role: 'system',
+        content: `You are Evoteli AI, a property intelligence assistant. Convert natural language queries into structured property filters.
+
+        Output format (JSON only):
+        {
+          "interpretation": "User wants solar prospects in Atlanta",
+          "filters": {
+            "location": { "city": "Atlanta", "state": "GA" },
+            "solar_score_min": 70,
+            "roof_condition": ["excellent", "good"]
+          },
+          "suggestions": ["Try: 'homes needing roof replacement'", "Filter by permit activity"]
+        }
+
+        Available filters:
+        - location: { city, state, zip, county }
+        - roof_condition: excellent | good | fair | poor
+        - solar_score_min: 0-100
+        - roof_age_years_max: number
+        - driveway_condition: excellent | good | fair | poor
+        - permit_activity_days: number (recent permits)
+        - property_type: residential | commercial
+        `
+      },
+      ...messages,
+      {
+        role: 'user',
+        content: query
+      }
+    ]
+  })
+
+  const stream = OpenAIStream(response, {
+    onCompletion: async (completion) => {
+      // Log query for analytics
+      await logQuery(query, completion)
+    }
+  })
+
+  return new StreamingTextResponse(stream)
+}
+```
+
+**Client Hook:**
+```tsx
+// components/search/ai-search-bar.tsx
+'use client'
+
+import { useChat } from 'ai/react'
+import { useState } from 'react'
+
+export function AISearchBar({ onFiltersUpdate }) {
+  const [query, setQuery] = useState('')
+
+  const { messages, append, isLoading } = useChat({
+    api: '/api/chat',
+    onFinish: (message) => {
+      try {
+        const response = JSON.parse(message.content)
+        onFiltersUpdate(response.filters)
+
+        // Show AI interpretation
+        toast.info(response.interpretation)
+
+        // Show suggestions
+        if (response.suggestions?.length > 0) {
+          setSuggestions(response.suggestions)
+        }
+      } catch (error) {
+        console.error('Failed to parse AI response:', error)
+      }
+    }
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!query.trim()) return
+
+    append({
+      role: 'user',
+      content: query
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="relative">
+      <Input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Try: 'Atlanta homes with solar potential'"
+        className="pr-20"
+      />
+      <Button
+        type="submit"
+        disabled={isLoading}
+        className="absolute right-2 top-1/2 -translate-y-1/2"
+      >
+        {isLoading ? <Spinner /> : <SearchIcon />}
+      </Button>
+
+      {/* Streaming AI response */}
+      {isLoading && (
+        <div className="absolute top-full mt-2 p-4 bg-card rounded-lg shadow-lg">
+          <p className="text-sm text-muted-foreground">
+            {messages[messages.length - 1]?.content}
+          </p>
+        </div>
+      )}
+    </form>
+  )
+}
+```
+
+---
+
+## Code Scaffolding
+
+### Project Initialization
+
+```bash
+# Create Next.js 15 app
+npx create-next-app@latest evoteli-frontend --typescript --tailwind --app --no-src-dir
+
+cd evoteli-frontend
+
+# Install core dependencies
+npm install \
+  maplibre-gl react-map-gl \
+  @deck.gl/react @deck.gl/layers \
+  supercluster \
+  ai openai \
+  @tanstack/react-query \
+  zustand \
+  zod react-hook-form @hookform/resolvers \
+  date-fns \
+  recharts \
+  axios
+
+# Install shadcn/ui
+npx shadcn-ui@latest init
+
+# Add shadcn components
+npx shadcn-ui@latest add button card input dialog tabs tooltip badge slider dropdown-menu
+```
+
+### Environment Variables
+
+```bash
+# .env.local
+NEXT_PUBLIC_MAPTILER_KEY=your_maptiler_key
+NEXT_PUBLIC_API_URL=http://localhost:8000
+OPENAI_API_KEY=sk-...
+```
+
+### Root Layout
+
+```tsx
+// app/layout.tsx
+import { Inter } from 'next/font/google'
+import { Providers } from '@/components/providers'
+import './globals.css'
+
+const inter = Inter({ subsets: ['latin'] })
+
+export const metadata = {
+  title: 'Evoteli - Market Intelligence Platform',
+  description: 'Fusing computer vision, satellite imagery, and geospatial data'
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
+        <Providers>
+          {children}
+        </Providers>
+      </body>
+    </html>
+  )
+}
+```
+
+### Providers Component
+
+```tsx
+// components/providers.tsx
+'use client'
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { ThemeProvider } from 'next-themes'
+import { Toaster } from '@/components/ui/toaster'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 15 * 60 * 1000,
+      retry: 1,
+      refetchOnWindowFocus: false
+    }
+  }
+})
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        {children}
+        <Toaster />
+      </ThemeProvider>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
+  )
+}
+```
+
+### API Client
+
+```typescript
+// lib/api/client.ts
+import axios from 'axios'
+
+export const apiClient = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
+// Request interceptor for auth
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('auth_token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+// Response interceptor for errors
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Redirect to login
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  }
+)
+```
+
+### Property API Functions
+
+```typescript
+// lib/api/properties.ts
+import { apiClient } from './client'
+import type { Property, PropertyFilters } from '@/types/property'
+
+export async function getProperties(filters: PropertyFilters): Promise<Property[]> {
+  const response = await apiClient.post<Property[]>('/api/properties/search', filters)
+  return response.data
+}
+
+export async function getProperty(id: string): Promise<Property> {
+  const response = await apiClient.get<Property>(`/api/properties/${id}`)
+  return response.data
+}
+
+export async function getRoofIQData(propertyId: string) {
+  const response = await apiClient.get(`/api/properties/${propertyId}/roofiq`)
+  return response.data
+}
+
+export async function getSolarFitData(propertyId: string) {
+  const response = await apiClient.get(`/api/properties/${propertyId}/solarfit`)
+  return response.data
+}
+```
+
+### Map Page
+
+```tsx
+// app/(dashboard)/map/page.tsx
+'use client'
+
+import { useState } from 'react'
+import { InteractiveMap } from '@/components/map/interactive-map'
+import { PropertyPanel } from '@/components/property/property-panel'
+import { SearchResults } from '@/components/search/search-results'
+import { useProperties } from '@/lib/hooks/use-properties'
+import { useMapStore } from '@/lib/stores/map-store'
+import type { Property } from '@/types/property'
+
+export default function MapPage() {
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
+  const { filters } = useMapStore()
+  const { data: properties = [], isLoading } = useProperties(filters)
+
+  return (
+    <div className="relative h-screen">
+      {/* Main map (70% width) */}
+      <div className="absolute inset-0">
+        <InteractiveMap
+          properties={properties}
+          selectedProperty={selectedProperty}
+          onPropertyClick={setSelectedProperty}
+          filters={filters}
+        />
+      </div>
+
+      {/* Property panel (30% width, right) */}
+      <PropertyPanel
+        property={selectedProperty}
+        isOpen={!!selectedProperty}
+        onClose={() => setSelectedProperty(null)}
+      />
+
+      {/* Search results (bottom drawer) */}
+      <SearchResults
+        properties={properties}
+        isLoading={isLoading}
+        onPropertyClick={setSelectedProperty}
+      />
+    </div>
+  )
+}
+```
+
+### Dashboard Layout
+
+```tsx
+// app/(dashboard)/layout.tsx
+import { AppShell } from '@/components/layout/app-shell'
+import { TopNav } from '@/components/layout/top-nav'
+import { SideNav } from '@/components/layout/side-nav'
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AppShell>
+      <TopNav />
+      <div className="flex h-[calc(100vh-64px)]">
+        <SideNav />
+        <main className="flex-1 overflow-auto">
+          {children}
+        </main>
+      </div>
+    </AppShell>
+  )
+}
+```
+
+---
+
+## Performance Optimization
+
+### 1. Code Splitting
+
+```tsx
+// Dynamic imports for heavy components
+import dynamic from 'next/dynamic'
+
+const InteractiveMap = dynamic(
+  () => import('@/components/map/interactive-map'),
+  {
+    ssr: false,
+    loading: () => <MapSkeleton />
+  }
+)
+
+const AudienceBuilder = dynamic(
+  () => import('@/components/audience/audience-builder'),
+  {
+    loading: () => <Spinner />
+  }
+)
+```
+
+### 2. Image Optimization
+
+```tsx
+import Image from 'next/image'
+
+<Image
+  src={`/api/properties/${property.id}/imagery/roof`}
+  alt="Roof imagery"
+  width={400}
+  height={300}
+  quality={85}
+  placeholder="blur"
+  blurDataURL={property.thumbnail_base64}
+/>
+```
+
+### 3. Debouncing
+
+```typescript
+// lib/hooks/use-debounce.ts
+import { useEffect, useState } from 'react'
+
+export function useDebounce<T>(value: T, delay: number = 300): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(value)
+    }, delay)
+
+    return () => clearTimeout(timer)
+  }, [value, delay])
+
+  return debouncedValue
+}
+
+// Usage
+const [searchQuery, setSearchQuery] = useState('')
+const debouncedQuery = useDebounce(searchQuery, 300)
+
+useEffect(() => {
+  if (debouncedQuery) {
+    fetchSuggestions(debouncedQuery)
+  }
+}, [debouncedQuery])
+```
+
+### 4. Virtualization for Long Lists
+
+```tsx
+import { useVirtualizer } from '@tanstack/react-virtual'
+
+export function PropertyList({ properties }: { properties: Property[] }) {
+  const parentRef = useRef<HTMLDivElement>(null)
+
+  const virtualizer = useVirtualizer({
+    count: properties.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 120,
+    overscan: 5
+  })
+
+  return (
+    <div ref={parentRef} className="h-full overflow-auto">
+      <div
+        style={{
+          height: `${virtualizer.getTotalSize()}px`,
+          position: 'relative'
+        }}
+      >
+        {virtualizer.getVirtualItems().map((virtualItem) => (
+          <div
+            key={virtualItem.key}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: `${virtualItem.size}px`,
+              transform: `translateY(${virtualItem.start}px)`
+            }}
+          >
+            <PropertyCard property={properties[virtualItem.index]} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+```
+
+### 5. React Query Prefetching
+
+```tsx
+// Prefetch on hover
+const queryClient = useQueryClient()
+
+const handleMouseEnter = (propertyId: string) => {
+  queryClient.prefetchQuery({
+    queryKey: ['property', propertyId],
+    queryFn: () => getProperty(propertyId)
+  })
+}
+
+<PropertyCard
+  property={property}
+  onMouseEnter={() => handleMouseEnter(property.id)}
+/>
+```
+
+### 6. Memoization
+
+```tsx
+import { useMemo, memo } from 'react'
+
+// Memoize expensive calculations
+const filteredProperties = useMemo(() => {
+  return properties.filter(p =>
+    p.solar_score >= filters.solar_score_min &&
+    p.roof_condition === filters.roof_condition
+  )
+}, [properties, filters])
+
+// Memoize components
+export const PropertyCard = memo(function PropertyCard({ property }: { property: Property }) {
+  return (
+    <Card>
+      {/* ... */}
+    </Card>
+  )
+}, (prevProps, nextProps) => {
+  return prevProps.property.id === nextProps.property.id
+})
+```
+
+---
+
+## Implementation Roadmap
+
+### Week 1-2: Foundation
+- [ ] Initialize Next.js 15 project
+- [ ] Install and configure shadcn/ui
+- [ ] Set up Tailwind CSS with design system colors
+- [ ] Create file structure
+- [ ] Implement providers (TanStack Query, Theme)
+- [ ] Build API client with auth interceptors
+
+### Week 3-4: Core Layout
+- [ ] Build `<AppShell>` layout
+- [ ] Implement `<TopNav>` with logo and user menu
+- [ ] Create `<SideNav>` with navigation items
+- [ ] Set up routing (auth, dashboard)
+
+### Week 5-6: Map Foundation
+- [ ] Integrate MapLibre GL JS
+- [ ] Build `<MapContainer>` wrapper
+- [ ] Implement basemap switching
+- [ ] Add `<LayerControls>`
+
+### Week 7-8: Property Visualization
+- [ ] Implement clustered markers with Supercluster
+- [ ] Add `<HeatmapLayer>` component
+- [ ] Build `<3DBuildingsLayer>`
+- [ ] Create property click handler
+
+### Week 9-10: Search & AI
+- [ ] Integrate Vercel AI SDK
+- [ ] Build `<AISearchBar>` with streaming
+- [ ] Implement filter parsing (GPT-4)
+- [ ] Add search suggestions
+
+### Week 11-12: Property Details
+- [ ] Create `<PropertyPanel>` sidebar
+- [ ] Build `<ProductTabs>` component
+- [ ] Implement `<RoofIQTab>`
+- [ ] Implement `<SolarFitTab>`
+- [ ] Add `<ConfidenceScore>` badges
+
+### Week 13-14: Audience Builder
+- [ ] Create multi-step `<AudienceBuilder>`
+- [ ] Implement Google Ads export
+- [ ] Add CSV/PDF exports
+- [ ] Build audience list view
+
+### Week 15-16: Polish & Performance
+- [ ] Add loading skeletons
+- [ ] Implement error boundaries
+- [ ] Optimize with code splitting
+- [ ] Add analytics tracking
+- [ ] Performance testing (Lighthouse)
+
+---
+
+## Summary
+
+This architecture provides:
+
+1. **Modern Stack:** Next.js 15, React Server Components, TypeScript
+2. **Best-in-Class Libraries:** shadcn/ui, MapLibre GL, Vercel AI SDK
+3. **Scalable Patterns:** Zustand for UI state, TanStack Query for server state
+4. **Performance:** Code splitting, debouncing, virtualization, memoization
+5. **Type Safety:** End-to-end TypeScript with Zod validation
+6. **Developer Experience:** Hot reload, Tailwind CSS, auto-generated components
+
+**Next Steps:**
+1. Review this architecture with team
+2. Set up repository and CI/CD
+3. Begin Week 1-2 implementation (foundation)
+4. Design Figma mockups in parallel
+
+Ready to build! 🚀
