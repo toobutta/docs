@@ -1,8 +1,14 @@
+'use client'
+
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
+import { AudienceBuilder } from "@/components/audience/audience-builder"
 
 export default function AudiencesPage() {
+  const [isBuilderOpen, setIsBuilderOpen] = useState(false)
+
   return (
     <div className="p-8">
       <div className="mb-8 flex items-center justify-between">
@@ -12,7 +18,7 @@ export default function AudiencesPage() {
             Manage and export your property audiences
           </p>
         </div>
-        <Button>
+        <Button onClick={() => setIsBuilderOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Create Audience
         </Button>
@@ -55,6 +61,14 @@ export default function AudiencesPage() {
           </CardContent>
         </Card>
       </div>
+
+      <AudienceBuilder
+        isOpen={isBuilderOpen}
+        onClose={() => setIsBuilderOpen(false)}
+        onComplete={(audience) => {
+          console.log('Audience created:', audience)
+        }}
+      />
     </div>
   )
 }
