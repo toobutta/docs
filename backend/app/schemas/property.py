@@ -91,7 +91,7 @@ class SolarFitData(BaseModel):
         """Build shading_analysis dict from individual fields"""
         if v is not None:
             return v
-        # In Pydantic v2, access other fields via info.data
+        # In Pydantic v2, access other fields via info.data instead of the values parameter
         values = info.data
         return {
             "spring": values.get("shading_spring"),
