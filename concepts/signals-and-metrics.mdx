@@ -1,0 +1,206 @@
+---
+title: "Signals and Metrics"
+description: "Understanding the data layer: metrics, units, cadence, methods, and quality scores"
+---
+
+## Overview
+
+The Evoteli generates **signals** (time-series metrics) from computer vision, satellite imagery, and geospatial data. Every signal includes standardized metadata: **unit**, **cadence**, **method**, **quality_score**, and **provenance**.
+
+## Signal Anatomy
+
+```json
+{
+  "ts": "2025-11-06T11:00:00Z",
+  "metric": "occupancy",
+  "value": 18.4,
+  "unit": "count",
+  "method": "edge_cv",
+  "quality_score": 0.82,
+  "provenance": {
+    "sources": ["edge_cam:cam1"],
+    "model_version": "yolo11n-2025.10"
+  }
+}
+```
+
+### Core Fields
+
+| Field | Description |
+|-------|-------------|
+| `ts` | Timestamp (ISO 8601 UTC) |
+| `metric` | Metric name (e.g., `occupancy`, `roof_condition`) |
+| `value` | Numeric value |
+| `unit` | Unit of measurement (e.g., `count`, `seconds`, `0-1 score`) |
+| `method` | Data source method (see below) |
+| `quality_score` | Confidence/quality score (0-1) |
+| `provenance` | Source attribution and model lineage |
+
+## Data Source Methods
+
+| Method | Description | Typical Latency |
+|--------|-------------|-----------------|
+| `edge_cv` | Edge camera computer vision | 5-60 seconds |
+| `sat_change` | Satellite change detection | Weekly |
+| `aerial_oblique` | Aerial oblique imagery analysis | On-demand |
+| `mobile_panel` | Opt-in mobile panel (future) | 15-60 minutes |
+| `fused` | Multiple sources combined | Varies |
+
+## Metric Categories
+
+### Commercial (LotWatch)
+
+| Metric | Unit | Cadence | Method |
+|--------|------|---------|--------|
+| `occupancy` | count | 5-60s | edge_cv |
+| `queue_len` | count | 5-60s | edge_cv |
+| `dwell_median` | seconds | 15m rollup | edge_cv |
+| `turnover_rate` | vehicles/hour | 1h rollup | edge_cv |
+| `service_time_p50` | seconds | 15m rollup | edge_cv |
+| `service_time_p95` | seconds | 15m rollup | edge_cv |
+| `competitor_index` | ratio | daily | fused |
+| `event_score` | 0-1 | daily | external_api |
+
+### Residential (HomeScope)
+
+| Metric | Unit | Cadence | Method |
+|--------|------|---------|--------|
+| `roof_condition` | 0-1 | weekly | sat_change |
+| `roof_area` | sq ft | on-demand | aerial_oblique |
+| `roof_slope` | degrees | on-demand | aerial_oblique |
+| `roof_age_band` | years (5-10, 10-15, 15+) | monthly | fused |
+| `solar_score` | 0-1 | on-demand | fused |
+| `insolation_annual` | kWh/m²/year | on-demand | earth_engine |
+| `shade_index` | 0-1 | on-demand | earth_engine |
+| `driveway_condition` | 0-1 | weekly | sat_change |
+| `impervious_pct` | percentage | on-demand | earth_engine |
+
+### Construction (GeoPulse)
+
+| Metric | Unit | Cadence | Method |
+|--------|------|---------|--------|
+| `construction_delta` | percentage | weekly | sat_change |
+| `trailer_count` | count | weekly | sat_change |
+| `parking_lot_expansion` | sq ft | weekly | sat_change |
+
+## Quality Score
+
+Every metric includes a **quality_score** (0-1) indicating confidence:
+
+| Range | Interpretation |
+|-------|----------------|
+| 0.85 - 1.0 | High confidence (tier-1) |
+| 0.70 - 0.84 | Good confidence (tier-2) |
+| 0.50 - 0.69 | Moderate confidence (use with caution) |
+| 0.00 - 0.49 | Low confidence (flag for review) |
+
+**Factors Affecting Quality:**
+- Occlusion/obstruction in camera view
+- High cloud cover in satellite imagery
+- Low-light conditions
+- Model drift
+- Incomplete data coverage
+
+## Rollup Aggregations
+
+Raw events (5-60s cadence) can be rolled up to reduce volume:
+
+| Rollup | Typical Use Case |
+|--------|------------------|
+| `5m` | Near-real-time dashboards |
+| `15m` | Operational monitoring |
+| `1h` | Trend analysis |
+| `1d` | Historical comparisons |
+
+**Aggregation Functions:**
+
+| Metric Type | Function |
+|-------------|----------|
+| `occupancy`, `queue_len` | Mean |
+| `dwell_median`, `service_time_p50` | Median |
+| `turnover_rate` | Sum |
+| `event_score`, `competitor_index` | Max |
+
+## Provenance
+
+Every signal includes **provenance** for transparency and compliance:
+
+```json
+{
+  "sources": ["edge_cam:cam1"],
+  "imagery_license_id": null,
+  "model_version": "yolo11n-2025.10",
+  "computation_date": "2025-11-06T11:00:05Z"
+}
+```
+
+See [Provenance API](/api-reference/provenance) for detailed attribution.
+
+## Signal Retention
+
+| Level | Retention Period |
+|-------|------------------|
+| Raw site-level metrics | 90 days |
+| 15m/1h rollups | 180 days |
+| 1d aggregates | 365 days |
+| Provenance logs | 7 years |
+
+## Example: Querying Signals
+
+**Query occupancy with 15-minute rollup:**
+
+```python
+from geointel import Client
+
+client = Client(client_id="...", client_secret="...")
+
+response = client.signals.query(
+    site_id="ATL-CTF-001",
+    metrics=["occupancy", "queue_len"],
+    time_from="2025-11-05T00:00:00Z",
+    time_to="2025-11-06T00:00:00Z",
+    rollup="15m"
+)
+
+for row in response.rows:
+    print(f"{row.ts}: {row.metric}={row.value} (quality: {row.quality_score:.2f})")
+```
+
+**Output:**
+```
+2025-11-05T11:00:00Z: occupancy=18.4 (quality: 0.82)
+2025-11-05T11:00:00Z: queue_len=5.2 (quality: 0.79)
+2025-11-05T11:15:00Z: occupancy=22.1 (quality: 0.84)
+2025-11-05T11:15:00Z: queue_len=7.8 (quality: 0.81)
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Rollups for Large Time Ranges">
+    Query raw events only for short time ranges (<7 days). Use 15m/1h rollups for longer periods.
+  </Accordion>
+  <Accordion title="Filter by Quality Score">
+    Filter out low-quality metrics (`quality_score < 0.6`) for critical decisions.
+  </Accordion>
+  <Accordion title="Check Provenance for Compliance">
+    Always verify `provenance.imagery_license_id` for satellite/aerial metrics in public reports.
+  </Accordion>
+  <Accordion title="Monitor Quality Flags">
+    Use the [Provenance API](/api-reference/provenance) to check for quality flags (e.g., `high_cloud_cover`).
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Data Model" icon="database" href="/concepts/data-model">
+    Explore the underlying database schema
+  </Card>
+  <Card title="Provenance & Quality" icon="fingerprint" href="/concepts/provenance-quality">
+    Deep dive into quality scoring
+  </Card>
+  <Card title="Signals Query API" icon="code" href="/api-reference/signals-query">
+    Query signals programmatically
+  </Card>
+</CardGroup>

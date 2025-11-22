@@ -1,97 +1,157 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Evoteli"
+description: "Decision-grade intelligence from computer vision, satellite imagery, and location data"
 ---
 
-## Setting up
+## Vision
 
-Get your documentation site up and running in minutes.
+The Evoteli fuses **computer vision** (vehicle counting, drive-thru/curbside monitoring), **aerial/satellite change detection**, **geospatial data** (Maps, Earth, Places, Earth Engine), and **LLM copilots** to deliver **decision-grade signals** for commercial, residential, civic, and infrastructure use cases.
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+**Core Value:** Near-real-time competitor and site traffic intelligence, parcel-level property condition analysis, and actionable insights for planning, operations, marketing, and compliance—all with provenance, confidence scoring, and privacy-by-design.
 
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
+## Key Products
 
 <Columns cols={2}>
   <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
+    title="LotWatch"
+    icon="car"
+    href="/products/lotwatch"
   >
-    Edit your docs locally and preview them in real time.
+    Real-time parking, drive-thru, and curbside analytics with occupancy, queue length, and service time metrics.
   </Card>
   <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
+    title="HomeScope"
+    icon="house"
+    href="/products/homescope"
   >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+    Parcel-level property intelligence including roof condition, solar suitability, and driveway assessment.
   </Card>
   <Card
-    title="API documentation"
-    icon="terminal"
+    title="TradeZone AI"
+    icon="store"
+    href="/products/tradezone-ai"
+  >
+    Site selection, cannibalization analysis, and market potential modeling.
+  </Card>
+  <Card
+    title="GeoPulse"
+    icon="satellite"
+    href="/products/geopulse"
+  >
+    Construction and change detection from satellite/aerial imagery with weekly updates.
+  </Card>
+  <Card
+    title="SurgeRadar"
+    icon="chart-line"
+    href="/products/surgeradar"
+  >
+    Event and weather-driven demand forecasting for staffing and promotions.
+  </Card>
+  <Card
+    title="PermitScope"
+    icon="file-certificate"
+    href="/products/permitscope"
+  >
+    Early-warning system for competitor openings via permits, hiring, and construction signals.
+  </Card>
+</Columns>
+
+## Quick Start
+
+<Steps>
+  <Step title="Review the Architecture">
+    Understand the [platform architecture](/architecture) including edge processing, streaming, and batch components.
+  </Step>
+  <Step title="Explore the Signal API">
+    Learn how to [query signals](/api-reference/signals-query) with temporal and spatial filters.
+  </Step>
+  <Step title="Deploy Edge Devices">
+    Set up [edge processing](/deployment/edge-devices) for real-time computer vision analytics.
+  </Step>
+  <Step title="Integrate Data Sources">
+    Connect [satellite imagery](/implementation/batch-processing) and external data providers.
+  </Step>
+</Steps>
+
+## Platform Capabilities
+
+### Real-Time Analytics
+- **Sub-10-second lag** from camera to metric
+- **5-minute to daily rollups** with configurable aggregation
+- **Quality scoring** (0-1) on every metric
+
+### Privacy-First Design
+- **On-device redaction** of faces and license plates
+- **Aggregation by default** with configurable retention
+- **Provenance tracking** for every data point
+
+### Decision-Grade Intelligence
+- **Confidence intervals** on all predictions
+- **Source attribution** with imagery license tracking
+- **Model versioning** and lineage
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="QSR Operations: Lunch Rush Optimization">
+    Monitor competitor drive-thru queue lengths 11:00-14:00. Trigger alerts when competitor index > 1.3 for 2+ consecutive weeks. Generate staffing and promotional recommendations.
+  </Accordion>
+  <Accordion title="Residential Contractors: Qualified Lead Generation">
+    Identify homes with south-facing roofs >300 ft², roof age ≥12 years, within utility rebate zones. Export hashed audiences for Customer Match campaigns.
+  </Accordion>
+  <Accordion title="Insurance: Post-Storm Triage">
+    Join NOAA storm footprints with property condition scores. Route contractors to likely-loss parcels within 24-48 hours.
+  </Accordion>
+  <Accordion title="Real Estate: Construction Intelligence">
+    Detect pad/lot changes, cross-reference with permit data and hiring signals to predict competitor openings 90-180 days in advance.
+  </Accordion>
+</AccordionGroup>
+
+## Performance Benchmarks
+
+<CardGroup cols={3}>
+  <Card title="API Latency">
+    **p95 < 800ms** (cached)
+    **p95 < 2.5s** (cold)
+  </Card>
+  <Card title="Data Freshness">
+    **1-5 min** (edge cameras)
+    **Weekly** (satellite)
+  </Card>
+  <Card title="Quality Score">
+    **≥0.75 average** on tier-1 metrics
+  </Card>
+</CardGroup>
+
+## Get Started
+
+<CardGroup cols={2}>
+  <Card
+    title="API Reference"
+    icon="code"
     href="/api-reference/introduction"
   >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
-
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+    Explore the Signal API, Alerts, Audiences, and Earth Engine endpoints.
   </Card>
   <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
+    title="Architecture Guide"
+    icon="diagram-project"
+    href="/architecture"
   >
-    Add sample code to demonstrate how to use your product.
+    Understand edge, stream, and batch processing components.
   </Card>
   <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
+    title="Privacy & Compliance"
+    icon="shield-check"
+    href="/compliance/privacy-by-design"
   >
-    Display images and other media.
+    Learn about privacy-by-design, data governance, and licensing.
   </Card>
   <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
+    title="Deployment"
+    icon="server"
+    href="/deployment/infrastructure"
   >
-    Write once and reuse across your docs.
+    Deploy the platform on your infrastructure.
   </Card>
-</Columns>
-
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+</CardGroup>

@@ -1,0 +1,73 @@
+Category,API Name,Free Tier,Auth Required,HTTPS,CORS,Primary Use Case,Rate Limits / Cost,Recommended Priority
+Geocoding,Geocode.xyz,Yes,No,Yes,Unknown,Worldwide forward/reverse geocoding,No rate limit - Free,CRITICAL
+Geocoding,Geoapify,Yes,apiKey,Yes,Yes,Forward/reverse geocoding + address autocomplete,Generous free tier,CRITICAL
+Geocoding,Geocod.io,Yes,apiKey,Yes,Unknown,Address geocoding + batch processing,10000/month free,CRITICAL
+Geocoding,GeographQL,Yes,No,Yes,Yes,Country/State/City GraphQL API,Unlimited - Free,HIGH
+Geocoding,GeoJS,Yes,No,Yes,Yes,IP geolocation with ChatOps,Unlimited - Free,HIGH
+Geocoding,Geokeo,Yes,No,Yes,Yes,Fast geocoding service,2500 requests/day free,HIGH
+Geocoding,GeoNames,Yes,No,No,Unknown,Place names and geographical data,20000/hour - Free,MEDIUM
+Geocoding,Country,Yes,No,Yes,Yes,Get country from visitor IP,Unlimited - Free,MEDIUM
+Geocoding,IP Geolocation,Yes,apiKey,Yes,Yes,IP-based geolocation,Unknown - Free,MEDIUM
+Geocoding,OnWater,Yes,No,Yes,Yes,Determine if lat/lon is on water/land,Unlimited - Free,HIGH
+Geocoding,CARTO,Yes,apiKey,Yes,Unknown,Location intelligence + mapping,Free tier + paid,HIGH
+Geocoding,Actinia Grass GIS,Yes,apiKey,Yes,Unknown,Open source REST API for GIS,Free open source,MEDIUM
+Geocoding,One Map Singapore,Yes,apiKey,Yes,Unknown,Singapore land authority services,Free for public use,MEDIUM
+Weather,Open-Meteo,Yes,No,Yes,Yes,Global weather forecasts (non-commercial),Unlimited - Free,CRITICAL
+Weather,OpenWeatherMap,Yes,apiKey,Yes,Unknown,Weather + forecast data,1000/day free,CRITICAL
+Weather,WeatherAPI,Yes,apiKey,Yes,Yes,Weather + astronomy + geolocation,1000000/month free,CRITICAL
+Weather,US National Weather Service,Yes,No,Yes,Yes,NOAA official weather API,Unlimited - Free,CRITICAL
+Weather,MetaWeather,Yes,No,Yes,No,Weather forecasts worldwide,Unlimited - Free,HIGH
+Weather,Visual Crossing,Yes,apiKey,Yes,Yes,Historical + forecast weather,Generous free tier,HIGH
+Weather,Weatherbit,Yes,apiKey,Yes,Unknown,Weather forecasts + historical,500/day free,HIGH
+Weather,RainViewer,Yes,No,Yes,Unknown,Radar data and precipitation maps,Generous free tier,HIGH
+Environment,OpenAQ,Yes,apiKey,Yes,Unknown,Air quality data (1000+ cities),Unknown - Free,CRITICAL
+Environment,IQAir,Yes,apiKey,Yes,Unknown,Air quality + weather data,Unknown - Freemium,CRITICAL
+Environment,AQICN,Yes,apiKey,Yes,Unknown,Air Quality Index (1000+ cities),Generous free tier,CRITICAL
+Environment,PM2.5 Open Data,Yes,No,Yes,Unknown,Low-cost PM2.5 sensor data,Unlimited - Free,HIGH
+Environment,Purple Air,Yes,No,Yes,Unknown,Real-time air quality monitoring,Unlimited - Free,HIGH
+Environment,UK Carbon Intensity,Yes,No,Yes,Unknown,Official Carbon Intensity (GB),Unlimited - Free,HIGH
+Environment,OpenSenseMap,Yes,No,Yes,Yes,Personal weather station data,Unlimited - Free,HIGH
+Government - US,Census.gov,Yes,No,Yes,Unknown,US demographics + business data,Unlimited - Free,CRITICAL
+Government - US,Data.gov,Yes,apiKey,Yes,Unknown,US government data aggregator,Unlimited - Free,CRITICAL
+Government - US,EPA,Yes,No,Yes,Unknown,Environmental Protection Agency,Unlimited - Free,CRITICAL
+Government - US,USGS Earthquake Hazards,Yes,No,Yes,No,Real-time earthquake data,Unlimited - Free,HIGH
+Government - US,USGS Water Services,Yes,No,Yes,No,Water quality/level data,Unlimited - Free,HIGH
+Government - US,Data USA,Yes,No,Yes,Unknown,US public data aggregator,Unlimited - Free,HIGH
+Government - US,National Park Service,Yes,apiKey,Yes,Yes,US national parks data,Unlimited - Free,MEDIUM
+Government - International,Brazil (BrasilAPI),Yes,No,Yes,Yes,Brazilian public data,Unlimited - Free,HIGH
+Government - International,IBGE,Yes,No,Yes,Unknown,Brazilian statistical data,Unlimited - Free,HIGH
+Government - International,Open Government Australia,Yes,No,Yes,Unknown,Australian government data,Unlimited - Free,HIGH
+Government - International,Open Government Canada,Yes,No,No,Unknown,Canadian government data,Unlimited - Free,HIGH
+Government - International,Open Government UK,Yes,No,Yes,Unknown,UK government data,Unlimited - Free,HIGH
+Government - International,Open Government Germany,Yes,No,Yes,Unknown,German government data,Unlimited - Free,HIGH
+Government - International,Open Government France,Yes,apiKey,Yes,Unknown,French government data,Unlimited - Free,MEDIUM
+Demographics,Census.gov,Yes,No,Yes,Unknown,US demographics,Unlimited - Free,CRITICAL
+Demographics,Data USA,Yes,No,Yes,Unknown,Aggregated US demographic data,Unlimited - Free,HIGH
+Demographics,IBGE,Yes,No,Yes,Unknown,Brazilian demographic data,Unlimited - Free,HIGH
+Demographics,World Bank,Yes,No,Yes,Unknown,Global demographic data,Unlimited - Free,HIGH
+Real Estate,OnWater,Yes,No,Yes,Yes,Property zoning classification,Unlimited - Free,MEDIUM
+Real Estate,One Map Singapore,Yes,apiKey,Yes,Unknown,Singapore land authority,Free - Government,MEDIUM
+Transportation - Aviation,ADS-B Exchange,Yes,No,Yes,Unknown,Real-time aircraft tracking,Unlimited - Free,HIGH
+Transportation - Aviation,OpenSky Network,Yes,No,Yes,Unknown,Real-time ADS-B aviation data,Unlimited - Free,HIGH
+Transportation - Aviation,AviationAPI,Yes,No,Yes,No,FAA charts + airport weather,Unlimited - Free,MEDIUM
+Transportation - Transit,Transport for London,Yes,apiKey,Yes,Unknown,TfL API comprehensive transit,Unlimited - Free,HIGH
+Transportation - Transit,Transport for Berlin,Yes,No,Yes,Unknown,VBB Berlin transit API,Unlimited - Free,MEDIUM
+Transportation - Transit,Transport for Spain,Yes,No,Yes,Unknown,Spanish railway data,Unlimited - Free,MEDIUM
+Transportation - Transit,Transport for Switzerland,Yes,apiKey,Yes,Unknown,Official Swiss transport,Unlimited - Free,MEDIUM
+Transportation - Transit,BC Ferries,Yes,No,Yes,Yes,Ferry sailing times/capacity,Unlimited - Free,MEDIUM
+Transportation - Other,GraphHopper,Yes,apiKey,Yes,Unknown,A-to-B routing + navigation,Unknown - Freemium,HIGH
+Transportation - Other,Open Charge Map,Yes,apiKey,Yes,Yes,Global EV charging locations,Unlimited - Freemium,MEDIUM
+Transportation - Other,AIS Hub,Yes,apiKey,No,Unknown,Marine vessel tracking,Unknown - Freemium,MEDIUM
+Satellite/Imagery,NASA,Yes,No,Yes,No,NASA imagery + satellite data,Unlimited - Free,CRITICAL
+Satellite/Imagery,Google Earth Engine,Yes,apiKey,Yes,Unknown,Planetary-scale analysis,Generous free tier,CRITICAL
+Satellite/Imagery,TLE,Yes,No,Yes,No,Satellite orbital information,Unlimited - Free,HIGH
+Satellite/Imagery,SpaceX,Yes,No,Yes,No,SpaceX launch + vehicle data,Unlimited - Free,MEDIUM
+Satellite/Imagery,ISRO,Yes,No,Yes,No,Indian spacecraft information,Unlimited - Free,MEDIUM
+Business Intelligence,OpenCorporates,Yes,apiKey,Yes,Unknown,Corporate data 80+ countries,Free tier available,HIGH
+Business Intelligence,Enigma Public,Yes,apiKey,Yes,Yes,Broadest public data collection,Free tier available,HIGH
+Business Intelligence,CARTO,Yes,apiKey,Yes,Unknown,Location intelligence analytics,Freemium,HIGH
+Business Intelligence,OpenSanctions,Yes,No,Yes,Yes,International sanctions/PEPs,Unlimited - Free,MEDIUM
+Financial,Econdb,Yes,No,Yes,Unknown,Global macroeconomic data,Unlimited - Free,HIGH
+Financial,Fed Treasury,Yes,No,Yes,Unknown,US Treasury Department data,Unlimited - Free,HIGH
+Financial,FRED,Yes,apiKey,Yes,Unknown,Federal Reserve economic data,Unknown - Freemium,MEDIUM
+Financial,Yahoo Finance,Yes,apiKey,Yes,Unknown,Stock market + crypto data,Unknown - Freemium,MEDIUM

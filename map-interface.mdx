@@ -1,0 +1,945 @@
+---
+title: "Map Interface Design"
+description: "Interactive map UI for territory mapping, customer identification, and market analysis"
+---
+
+## Overview
+
+The **Map Interface** is the primary user-facing component of the Evoteli. It enables users to:
+
+1. **Visualize data layers:** Occupancy heat maps, parcel boundaries, demographics
+2. **Draw territories:** Custom polygons for sales regions, delivery zones
+3. **Advanced search:** Multi-criteria filters (roof condition, income, distance)
+4. **Customer identification:** Click parcels to view property details and signals
+5. **Market analysis:** View demographic overlays and competitor locations
+
+---
+
+## Architecture
+
+### Component Stack
+
+```
+┌──────────────────────────────────────────────────┐
+│         React App (Vite + TypeScript)            │
+├──────────────────────────────────────────────────┤
+│  MapLibre GL JS         │  Deck.gl (overlays)    │
+│  Mapbox GL Draw         │  shadcn/ui (filters)   │
+├──────────────────────────────────────────────────┤
+│  Zustand (state)        │  React Query (API)     │
+├──────────────────────────────────────────────────┤
+│  Tailwind CSS           │  Radix UI primitives   │
+└──────────────────────────────────────────────────┘
+```
+
+### File Structure
+
+```
+geointel-ui/
+├── src/
+│   ├── components/
+│   │   ├── Map/
+│   │   │   ├── BaseMap.tsx              # MapLibre GL wrapper
+│   │   │   ├── TerritoryDrawer.tsx      # Mapbox Draw integration
+│   │   │   ├── HeatMapLayer.tsx         # Deck.gl heat maps
+│   │   │   ├── ParcelLayer.tsx          # GeoJSON parcels
+│   │   │   └── MarkerLayer.tsx          # Site markers
+│   │   ├── Filters/
+│   │   │   ├── AdvancedSearch.tsx       # Cmd+K style search
+│   │   │   ├── FilterPanel.tsx          # Left sidebar filters
+│   │   │   └── SavedSearches.tsx        # Saved filter presets
+│   │   ├── Details/
+│   │   │   ├── PropertyCard.tsx         # Parcel details modal
+│   │   │   ├── SignalsChart.tsx         # Time-series charts
+│   │   │   └── DemographicsPanel.tsx    # Census data
+│   │   └── ui/                          # shadcn/ui components
+│   ├── hooks/
+│   │   ├── useMap.ts                    # Map state hook
+│   │   ├── useSignals.ts                # API queries
+│   │   └── useTerritories.ts            # Territory management
+│   ├── store/
+│   │   └── mapStore.ts                  # Zustand store
+│   └── lib/
+│       ├── api.ts                       # API client
+│       └── utils.ts                     # Helpers
+└── public/
+    └── styles/
+        └── map.json                     # MapLibre style
+```
+
+---
+
+## Core Features
+
+### 1. Base Map with MapLibre GL
+
+**Component: `BaseMap.tsx`**
+
+```typescript
+import { useEffect, useRef } from 'react';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+
+interface BaseMapProps {
+  center: [number, number];
+  zoom: number;
+  onLoad?: (map: maplibregl.Map) => void;
+}
+
+export function BaseMap({ center, zoom, onLoad }: BaseMapProps) {
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<maplibregl.Map | null>(null);
+
+  useEffect(() => {
+    if (!mapContainer.current) return;
+
+    map.current = new maplibregl.Map({
+      container: mapContainer.current,
+      style: '/styles/map.json', // Protomaps or OpenMapTiles style
+      center,
+      zoom,
+      minZoom: 3,
+      maxZoom: 22
+    });
+
+    map.current.on('load', () => {
+      if (onLoad && map.current) {
+        onLoad(map.current);
+      }
+    });
+
+    return () => {
+      map.current?.remove();
+    };
+  }, []);
+
+  return (
+    <div
+      ref={mapContainer}
+      className="absolute inset-0"
+      style={{ width: '100%', height: '100%' }}
+    />
+  );
+}
+```
+
+**Map Style (`public/styles/map.json`):**
+
+```json
+{
+  "version": 8,
+  "sources": {
+    "protomaps": {
+      "type": "vector",
+      "url": "pmtiles://https://evoteli.com/tiles.pmtiles"
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": { "background-color": "#f8f9fa" }
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "protomaps",
+      "source-layer": "water",
+      "paint": { "fill-color": "#a0cfdf" }
+    },
+    {
+      "id": "roads",
+      "type": "line",
+      "source": "protomaps",
+      "source-layer": "roads",
+      "paint": {
+        "line-color": "#ffffff",
+        "line-width": 2
+      }
+    }
+  ]
+}
+```
+
+---
+
+### 2. Territory Drawing with Mapbox GL Draw
+
+**Component: `TerritoryDrawer.tsx`**
+
+```typescript
+import { useEffect } from 'react';
+import MapboxDraw from '@mapbox/mapbox-gl-draw';
+import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
+
+interface TerritoryDrawerProps {
+  map: maplibregl.Map;
+  onSave: (geojson: GeoJSON.Feature) => void;
+}
+
+export function TerritoryDrawer({ map, onSave }: TerritoryDrawerProps) {
+  useEffect(() => {
+    const draw = new MapboxDraw({
+      displayControlsDefault: false,
+      controls: {
+        polygon: true,
+        trash: true
+      },
+      styles: [
+        {
+          id: 'gl-draw-polygon-fill',
+          type: 'fill',
+          paint: {
+            'fill-color': '#2563eb',
+            'fill-opacity': 0.2
+          }
+        },
+        {
+          id: 'gl-draw-polygon-stroke',
+          type: 'line',
+          paint: {
+            'line-color': '#2563eb',
+            'line-width': 3
+          }
+        }
+      ]
+    });
+
+    map.addControl(draw, 'top-left');
+
+    map.on('draw.create', (e) => {
+      const territory = e.features[0];
+      onSave(territory);
+    });
+
+    return () => {
+      map.removeControl(draw);
+    };
+  }, [map]);
+
+  return null;
+}
+```
+
+**Usage:**
+
+```typescript
+<BaseMap
+  center={[-84.3880, 33.7490]}
+  zoom={12}
+  onLoad={(map) => {
+    <TerritoryDrawer
+      map={map}
+      onSave={(territory) => {
+        fetch('/api/territories', {
+          method: 'POST',
+          body: JSON.stringify(territory)
+        });
+      }}
+    />
+  }}
+/>
+```
+
+---
+
+### 3. Heat Maps with Deck.gl
+
+**Component: `HeatMapLayer.tsx`**
+
+```typescript
+import { useEffect } from 'react';
+import { Deck } from '@deck.gl/core';
+import { HeatmapLayer } from '@deck.gl/aggregation-layers';
+
+interface HeatMapLayerProps {
+  map: maplibregl.Map;
+  data: Array<{ lon: number; lat: number; weight: number }>;
+}
+
+export function HeatMapLayer({ map, data }: HeatMapLayerProps) {
+  useEffect(() => {
+    const deck = new Deck({
+      canvas: 'deck-canvas',
+      initialViewState: {
+        longitude: map.getCenter().lng,
+        latitude: map.getCenter().lat,
+        zoom: map.getZoom()
+      },
+      controller: false,
+      layers: [
+        new HeatmapLayer({
+          id: 'heatmap',
+          data,
+          getPosition: (d) => [d.lon, d.lat],
+          getWeight: (d) => d.weight,
+          radiusPixels: 30,
+          intensity: 1,
+          threshold: 0.03,
+          colorRange: [
+            [255, 255, 178],
+            [254, 204, 92],
+            [253, 141, 60],
+            [240, 59, 32],
+            [189, 0, 38]
+          ]
+        })
+      ]
+    });
+
+    // Sync Deck.gl with MapLibre
+    map.on('move', () => {
+      deck.setProps({
+        viewState: {
+          longitude: map.getCenter().lng,
+          latitude: map.getCenter().lat,
+          zoom: map.getZoom(),
+          bearing: map.getBearing(),
+          pitch: map.getPitch()
+        }
+      });
+    });
+
+    return () => {
+      deck.finalize();
+    };
+  }, [map, data]);
+
+  return (
+    <canvas
+      id="deck-canvas"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        pointerEvents: 'none'
+      }}
+    />
+  );
+}
+```
+
+---
+
+### 4. Parcel Layer (GeoJSON)
+
+**Component: `ParcelLayer.tsx`**
+
+```typescript
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+
+interface ParcelLayerProps {
+  map: maplibregl.Map;
+  filters: Record<string, any>;
+}
+
+export function ParcelLayer({ map, filters }: ParcelLayerProps) {
+  const { data: parcels } = useQuery({
+    queryKey: ['parcels', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams(filters);
+      const res = await fetch(`/api/parcels?${params}`);
+      return res.json();
+    }
+  });
+
+  useEffect(() => {
+    if (!map || !parcels) return;
+
+    // Add parcel source
+    if (!map.getSource('parcels')) {
+      map.addSource('parcels', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: parcels
+        }
+      });
+    } else {
+      (map.getSource('parcels') as maplibregl.GeoJSONSource).setData({
+        type: 'FeatureCollection',
+        features: parcels
+      });
+    }
+
+    // Add parcel fill layer
+    if (!map.getLayer('parcels-fill')) {
+      map.addLayer({
+        id: 'parcels-fill',
+        type: 'fill',
+        source: 'parcels',
+        paint: {
+          'fill-color': [
+            'case',
+            ['<', ['get', 'roof_condition'], 0.6],
+            '#ef4444', // Red (poor condition)
+            ['<', ['get', 'roof_condition'], 0.8],
+            '#f59e0b', // Orange (fair)
+            '#10b981'  // Green (good)
+          ],
+          'fill-opacity': 0.5
+        }
+      });
+    }
+
+    // Add parcel outline
+    if (!map.getLayer('parcels-outline')) {
+      map.addLayer({
+        id: 'parcels-outline',
+        type: 'line',
+        source: 'parcels',
+        paint: {
+          'line-color': '#000',
+          'line-width': 1
+        }
+      });
+    }
+
+    // Click handler
+    map.on('click', 'parcels-fill', (e) => {
+      if (e.features && e.features.length > 0) {
+        const parcel = e.features[0];
+        // Show property details modal
+        console.log('Clicked parcel:', parcel.properties);
+      }
+    });
+
+    // Change cursor on hover
+    map.on('mouseenter', 'parcels-fill', () => {
+      map.getCanvas().style.cursor = 'pointer';
+    });
+
+    map.on('mouseleave', 'parcels-fill', () => {
+      map.getCanvas().style.cursor = '';
+    });
+  }, [map, parcels]);
+
+  return null;
+}
+```
+
+---
+
+### 5. Advanced Search Panel
+
+**Component: `AdvancedSearch.tsx`**
+
+```typescript
+import { useState } from 'react';
+import { Command } from '@/components/ui/command';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+
+export function AdvancedSearch() {
+  const [open, setOpen] = useState(false);
+  const [filters, setFilters] = useState({
+    roof_condition_max: 0.7,
+    roof_age_min: 15,
+    solar_score_min: 0.75,
+    income_min: 50000,
+    distance_max: 5 // miles
+  });
+
+  // Cmd+K to open
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setOpen((open) => !open);
+      }
+    };
+
+    document.addEventListener('keydown', down);
+    return () => document.removeEventListener('keydown', down);
+  }, []);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="p-0">
+        <Command className="rounded-lg border shadow-md">
+          <CommandInput placeholder="Search properties..." />
+          <CommandList>
+            <CommandGroup heading="Filters">
+              <CommandItem>
+                <Label>Roof Condition</Label>
+                <Slider
+                  value={[filters.roof_condition_max]}
+                  onValueChange={(v) =>
+                    setFilters({ ...filters, roof_condition_max: v[0] })
+                  }
+                  max={1}
+                  step={0.1}
+                />
+              </CommandItem>
+              <CommandItem>
+                <Label>Roof Age (years)</Label>
+                <Input
+                  type="number"
+                  value={filters.roof_age_min}
+                  onChange={(e) =>
+                    setFilters({ ...filters, roof_age_min: +e.target.value })
+                  }
+                />
+              </CommandItem>
+              <CommandItem>
+                <Label>Solar Score</Label>
+                <Slider
+                  value={[filters.solar_score_min]}
+                  onValueChange={(v) =>
+                    setFilters({ ...filters, solar_score_min: v[0] })
+                  }
+                  max={1}
+                  step={0.05}
+                />
+              </CommandItem>
+            </CommandGroup>
+            <CommandSeparator />
+            <CommandGroup heading="Actions">
+              <CommandItem onSelect={() => applyFilters(filters)}>
+                Apply Filters
+              </CommandItem>
+              <CommandItem onSelect={() => saveSearch(filters)}>
+                Save Search
+              </CommandItem>
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+---
+
+### 6. Property Details Modal
+
+**Component: `PropertyCard.tsx`**
+
+```typescript
+import { useQuery } from '@tanstack/react-query';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+interface PropertyCardProps {
+  parcelId: string;
+  open: boolean;
+  onClose: () => void;
+}
+
+export function PropertyCard({ parcelId, open, onClose }: PropertyCardProps) {
+  const { data: property } = useQuery({
+    queryKey: ['property', parcelId],
+    queryFn: async () => {
+      const res = await fetch(`/api/properties/${parcelId}`);
+      return res.json();
+    },
+    enabled: open
+  });
+
+  if (!property) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl">
+        <Tabs defaultValue="overview">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="roofiq">RoofIQ</TabsTrigger>
+            <TabsTrigger value="solarfit">SolarFit</TabsTrigger>
+            <TabsTrigger value="demographics">Demographics</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h3 className="font-semibold">Address</h3>
+                <p>{property.address}</p>
+              </div>
+              <div>
+                <h3 className="font-semibold">Parcel ID</h3>
+                <p>{property.parcel_id}</p>
+              </div>
+              <div>
+                <h3 className="font-semibold">Property Type</h3>
+                <p>{property.property_type}</p>
+              </div>
+              <div>
+                <h3 className="font-semibold">Lot Size</h3>
+                <p>{property.lot_size_sqft} sq ft</p>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="roofiq">
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold">Roof Condition</h3>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-gray-200 h-2 rounded">
+                    <div
+                      className="bg-green-500 h-2 rounded"
+                      style={{ width: `${property.roofiq.roof_condition * 100}%` }}
+                    />
+                  </div>
+                  <span>{(property.roofiq.roof_condition * 100).toFixed(0)}%</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <h4 className="text-sm font-medium">Area</h4>
+                  <p className="text-2xl">{property.roofiq.roof_area} ft²</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium">Slope</h4>
+                  <p className="text-2xl">{property.roofiq.roof_slope}°</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium">Age Band</h4>
+                  <p className="text-2xl">{property.roofiq.roof_age_band} yrs</p>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="solarfit">
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold">Solar Score</h3>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-gray-200 h-2 rounded">
+                    <div
+                      className="bg-yellow-500 h-2 rounded"
+                      style={{ width: `${property.solarfit.solar_score * 100}%` }}
+                    />
+                  </div>
+                  <span>{(property.solarfit.solar_score * 100).toFixed(0)}%</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-sm font-medium">Insolation</h4>
+                  <p className="text-xl">{property.solarfit.insolation_annual} kWh/m²/yr</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium">Payback Period</h4>
+                  <p className="text-xl">{property.solarfit.payback_estimate} years</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium">Est. Annual Savings</h4>
+                  <p className="text-xl">${property.solarfit.annual_savings}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium">Utility Rebate</h4>
+                  <p className="text-xl">
+                    {property.solarfit.utility_rebate_eligible ? '✅ Eligible' : '❌ Not Eligible'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="demographics">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h4 className="text-sm font-medium">Median Household Income</h4>
+                <p className="text-2xl">${property.demographics.median_income.toLocaleString()}</p>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium">Population (Census Tract)</h4>
+                <p className="text-2xl">{property.demographics.population.toLocaleString()}</p>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium">Home Ownership Rate</h4>
+                <p className="text-2xl">{property.demographics.ownership_rate}%</p>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium">Median Age</h4>
+                <p className="text-2xl">{property.demographics.median_age}</p>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+---
+
+### 7. Demographics Overlay Layer
+
+**Component: `DemographicsLayer.tsx`**
+
+```typescript
+import { useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+
+interface DemographicsLayerProps {
+  map: maplibregl.Map;
+  metric: 'income' | 'population' | 'age';
+}
+
+export function DemographicsLayer({ map, metric }: DemographicsLayerProps) {
+  const { data: censusData } = useQuery({
+    queryKey: ['census', metric, map.getBounds()],
+    queryFn: async () => {
+      const bounds = map.getBounds();
+      const res = await fetch(`/api/census/${metric}?bbox=${bounds.toArray()}`);
+      return res.json();
+    }
+  });
+
+  useEffect(() => {
+    if (!map || !censusData) return;
+
+    // Add census tracts source
+    if (!map.getSource('census-tracts')) {
+      map.addSource('census-tracts', {
+        type: 'geojson',
+        data: censusData
+      });
+    } else {
+      (map.getSource('census-tracts') as maplibregl.GeoJSONSource).setData(censusData);
+    }
+
+    // Add choropleth layer
+    if (!map.getLayer('census-fill')) {
+      map.addLayer({
+        id: 'census-fill',
+        type: 'fill',
+        source: 'census-tracts',
+        paint: {
+          'fill-color': [
+            'interpolate',
+            ['linear'],
+            ['get', metric],
+            30000, '#ffffcc',
+            50000, '#c7e9b4',
+            70000, '#7fcdbb',
+            90000, '#41b6c4',
+            110000, '#2c7fb8',
+            130000, '#253494'
+          ],
+          'fill-opacity': 0.6
+        }
+      });
+    }
+
+    // Add outline
+    if (!map.getLayer('census-outline')) {
+      map.addLayer({
+        id: 'census-outline',
+        type: 'line',
+        source: 'census-tracts',
+        paint: {
+          'line-color': '#000',
+          'line-width': 0.5
+        }
+      });
+    }
+  }, [map, censusData, metric]);
+
+  return null;
+}
+```
+
+---
+
+## Data Flow
+
+### 1. Initial Load
+
+```
+User opens map
+  → React Query fetches viewport parcels (/api/parcels?bbox=...)
+  → PostGIS executes: SELECT * FROM parcels WHERE ST_Intersects(...)
+  → Returns GeoJSON features
+  → MapLibre renders parcels on map
+```
+
+### 2. Apply Filters
+
+```
+User changes filter (roof_condition < 0.7)
+  → React state updates
+  → React Query refetches with new params (/api/parcels?roof_condition_lt=0.7)
+  → PostGIS filters results
+  → Map updates (smooth transition)
+```
+
+### 3. Click Parcel
+
+```
+User clicks parcel
+  → Click event extracts parcel_id
+  → PropertyCard modal opens
+  → React Query fetches:
+      - /api/properties/{parcel_id} (RoofIQ, SolarFit)
+      - /api/census/tract/{census_tract_id} (Demographics)
+  → Modal displays data in tabs
+```
+
+### 4. Draw Territory
+
+```
+User draws polygon
+  → Mapbox Draw captures vertices
+  → onSave callback fires
+  → POST /api/territories with GeoJSON
+  → PostGIS stores: INSERT INTO territories (name, geometry, ...)
+  → Territory appears in "Saved Territories" list
+```
+
+---
+
+## Performance Optimization
+
+### 1. Parcel Clustering (Large Datasets)
+
+For 100k+ parcels, use **Supercluster**:
+
+```bash
+npm install supercluster
+```
+
+```typescript
+import Supercluster from 'supercluster';
+
+const index = new Supercluster({
+  radius: 40,
+  maxZoom: 16
+});
+
+index.load(parcels.map(p => ({
+  type: 'Feature',
+  geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+  properties: p
+})));
+
+const clusters = index.getClusters(bbox, zoom);
+
+// Render clusters on map
+clusters.forEach(cluster => {
+  if (cluster.properties.cluster) {
+    // Render cluster circle
+  } else {
+    // Render individual parcel
+  }
+});
+```
+
+### 2. Vector Tiles (PostGIS)
+
+Serve parcels as **MVT (Mapbox Vector Tiles)**:
+
+```sql
+-- PostGIS function to generate vector tiles
+CREATE OR REPLACE FUNCTION parcels_mvt(z int, x int, y int)
+RETURNS bytea AS $$
+  SELECT ST_AsMVT(q, 'parcels', 4096, 'geom')
+  FROM (
+    SELECT
+      parcel_id,
+      roof_condition,
+      solar_score,
+      ST_AsMVTGeom(geometry, ST_TileEnvelope(z, x, y), 4096, 0, false) AS geom
+    FROM parcels
+    WHERE geometry && ST_TileEnvelope(z, x, y)
+  ) q;
+$$ LANGUAGE SQL IMMUTABLE PARALLEL SAFE;
+```
+
+**FastAPI endpoint:**
+
+```python
+@app.get("/tiles/{z}/{x}/{y}.pbf")
+async def get_tile(z: int, x: int, y: int):
+    mvt = await db.fetch_one(
+        "SELECT parcels_mvt($1, $2, $3) AS tile",
+        z, x, y
+    )
+    return Response(content=mvt['tile'], media_type="application/x-protobuf")
+```
+
+**MapLibre source:**
+
+```javascript
+map.addSource('parcels-mvt', {
+  type: 'vector',
+  tiles: ['http://localhost:8000/tiles/{z}/{x}/{y}.pbf'],
+  minzoom: 10,
+  maxzoom: 18
+});
+```
+
+### 3. Lazy Load Layers
+
+Only load layers when zoomed in:
+
+```typescript
+map.on('zoomend', () => {
+  const zoom = map.getZoom();
+
+  if (zoom >= 14 && !map.getLayer('parcels-fill')) {
+    // Load parcel layer
+    addParcelLayer();
+  } else if (zoom < 14 && map.getLayer('parcels-fill')) {
+    // Remove parcel layer
+    map.removeLayer('parcels-fill');
+  }
+});
+```
+
+---
+
+## Mobile Responsive
+
+### Adaptive Layout
+
+```typescript
+const isMobile = window.innerWidth < 768;
+
+return (
+  <div className="relative h-screen">
+    {/* Map */}
+    <BaseMap center={center} zoom={zoom} />
+
+    {/* Filters - Slide-in on mobile */}
+    <div
+      className={cn(
+        "absolute top-0 bg-white shadow-lg z-10",
+        isMobile ? "w-full h-1/3" : "left-0 w-80 h-full"
+      )}
+    >
+      <FilterPanel />
+    </div>
+
+    {/* Property Card - Full screen on mobile */}
+    <PropertyCard
+      parcelId={selectedParcel}
+      className={cn(isMobile && "fixed inset-0")}
+    />
+  </div>
+);
+```
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Tech Stack" icon="layer-group" href="/tech-stack">
+    Review the full technology stack
+  </Card>
+  <Card title="API Integration" icon="plug" href="/api-integration-guide">
+    Integrate public APIs for demographics
+  </Card>
+  <Card title="Deployment" icon="rocket" href="/deployment/infrastructure">
+    Deploy the map interface
+  </Card>
+  <Card title="Quickstart" icon="play" href="/quickstart">
+    Build your first map in 30 minutes
+  </Card>
+</CardGroup>

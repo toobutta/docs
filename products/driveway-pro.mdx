@@ -1,0 +1,25 @@
+---
+title: "DrivewayPro"
+description: "Driveway material, condition, and area measurement"
+---
+
+## Overview
+
+**DrivewayPro** (part of [HomeScope](/products/homescope)) segments and classifies driveways from aerial imagery, measuring area, material type, and condition for paving contractors and property assessments.
+
+## Metrics
+
+| Metric | Description |
+|--------|-------------|
+| `driveway_area` | Total driveway area (sq ft) |
+| `driveway_material` | asphalt, concrete, gravel, paver |
+| `driveway_condition` | 0-1 score (crack/wear detection) |
+| `crack_density` | Cracks per 100 sq ft |
+
+## Use Cases
+
+- **Paving Contractor Leads:** Target `driveway_condition < 0.5` and `driveway_area > 400 sq ft`
+- **Property Tax Assessments:** Accurate driveway area for impervious surface calculations
+- **Seal Coating Campaigns:** Identify asphalt driveways needing maintenance
+
+See [HomeScope documentation](/products/homescope) for full details.

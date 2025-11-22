@@ -1,0 +1,356 @@
+---
+title: "Data Model"
+description: "Time-series schema, reference tables, and views"
+---
+
+## Overview
+
+The Evoteli uses a **hybrid data model**:
+- **ClickHouse** for time-series metrics (high write throughput, fast aggregations)
+- **PostGIS** for spatial data (polygons, parcels, site geometries)
+- **Object Storage** (S3/GCS) for imagery tiles and model artifacts
+
+## Time-Series Table (ClickHouse)
+
+### signals_timeseries
+
+**Primary time-series table** for all metrics:
+
+```sql
+CREATE TABLE signals_timeseries (
+  site_id String,
+  polygon_id Nullable(String),
+  ts DateTime64(3),
+  metric LowCardinality(String),
+  value Float64,
+  unit LowCardinality(String),
+  method Enum8('edge_cv' = 1, 'sat_change' = 2, 'aerial_oblique' = 3, 'mobile_panel' = 4, 'fused' = 5),
+  quality_score Float32,
+  provenance String  -- JSON: {sources, imagery_license_id, model_version}
+) ENGINE = MergeTree()
+PARTITION BY toYYYYMM(ts)
+ORDER BY (site_id, metric, ts)
+SETTINGS index_granularity = 8192;
+```
+
+**Indexes:**
+- Primary key: `(site_id, metric, ts)` for fast site-level queries
+- Optional secondary index on `polygon_id` for parcel queries
+
+**Partitioning:**
+- Monthly partitions (`toYYYYMM(ts)`) for efficient retention management
+- Old partitions dropped after retention period
+
+**Example Row:**
+```json
+{
+  "site_id": "ATL-CTF-001",
+  "polygon_id": null,
+  "ts": "2025-11-06T11:00:00.000Z",
+  "metric": "occupancy",
+  "value": 18.4,
+  "unit": "count",
+  "method": "edge_cv",
+  "quality_score": 0.82,
+  "provenance": "{\"sources\":[\"edge_cam:cam1\"],\"model_version\":\"yolo11n-2025.10\"}"
+}
+```
+
+### Rollup Materialized Views
+
+**15-minute rollups:**
+
+```sql
+CREATE MATERIALIZED VIEW signals_15m_mv
+ENGINE = AggregatingMergeTree()
+PARTITION BY toYYYYMM(ts)
+ORDER BY (site_id, metric, ts)
+AS SELECT
+  site_id,
+  polygon_id,
+  toStartOfFifteenMinutes(ts) AS ts,
+  metric,
+  avgState(value) AS value_avg,
+  medianState(value) AS value_median,
+  sumState(value) AS value_sum,
+  maxState(value) AS value_max,
+  avgState(quality_score) AS quality_avg
+FROM signals_timeseries
+GROUP BY site_id, polygon_id, ts, metric;
+```
+
+**1-hour and 1-day rollups:** Similar structure with `toStartOfHour(ts)` and `toDate(ts)`.
+
+## Reference Tables (PostGIS)
+
+### sites
+
+**Store/location metadata:**
+
+```sql
+CREATE TABLE sites (
+  site_id VARCHAR(50) PRIMARY KEY,
+  name VARCHAR(200),
+  brand VARCHAR(100),
+  polygon GEOMETRY(Polygon, 4326),
+  address JSONB,
+  metadata JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX sites_geom_idx ON sites USING GIST (polygon);
+```
+
+**Example Row:**
+```json
+{
+  "site_id": "ATL-CTF-001",
+  "name": "Atlanta Midtown",
+  "brand": "BrandX",
+  "polygon": "POLYGON((-84.3880 33.7490, ...))",
+  "address": {
+    "street": "123 Main St",
+    "city": "Atlanta",
+    "state": "GA",
+    "zip": "30301"
+  },
+  "metadata": {
+    "cameras": ["cam1", "cam2"],
+    "store_id": "12345"
+  }
+}
+```
+
+### polygons
+
+**Parcel/lot geometries:**
+
+```sql
+CREATE TABLE polygons (
+  polygon_id VARCHAR(50) PRIMARY KEY,
+  parcel_id VARCHAR(50),
+  geometry GEOMETRY(Polygon, 4326),
+  area_sqft FLOAT,
+  property_type VARCHAR(50),
+  metadata JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX polygons_geom_idx ON polygons USING GIST (geometry);
+CREATE INDEX polygons_parcel_idx ON polygons (parcel_id);
+```
+
+### model_inferences
+
+**Segmentation masks and bounding boxes:**
+
+```sql
+CREATE TABLE model_inferences (
+  inference_id SERIAL PRIMARY KEY,
+  polygon_id VARCHAR(50) REFERENCES polygons(polygon_id),
+  model_name VARCHAR(100),
+  model_version VARCHAR(50),
+  inference_date TIMESTAMPTZ,
+  result JSONB,  -- Segmentation masks, bboxes, etc.
+  artifact_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX model_inferences_polygon_idx ON model_inferences (polygon_id, inference_date DESC);
+```
+
+### audiences
+
+**Audience export jobs:**
+
+```sql
+CREATE TABLE audiences (
+  job_id VARCHAR(50) PRIMARY KEY,
+  name VARCHAR(200),
+  filters JSONB,
+  destination VARCHAR(50),
+  status VARCHAR(20),
+  estimated_count INT,
+  final_count INT,
+  download_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+```
+
+### alerts
+
+**Alert configurations:**
+
+```sql
+CREATE TABLE alerts (
+  alert_id VARCHAR(50) PRIMARY KEY,
+  channel VARCHAR(50),
+  title VARCHAR(200),
+  condition JSONB,
+  payload JSONB,
+  status VARCHAR(20),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  last_triggered TIMESTAMPTZ,
+  trigger_count INT DEFAULT 0
+);
+```
+
+## Provenance Log Table
+
+### provenance_log
+
+**Immutable provenance records (7-year retention):**
+
+```sql
+CREATE TABLE provenance_log (
+  metric_id VARCHAR(50) PRIMARY KEY,
+  site_id VARCHAR(50),
+  polygon_id VARCHAR(50),
+  ts TIMESTAMPTZ,
+  metric VARCHAR(100),
+  value FLOAT,
+  provenance JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX provenance_log_ts_idx ON provenance_log (ts DESC);
+```
+
+## Views
+
+### signals_v
+
+**Unified view with site metadata:**
+
+```sql
+CREATE VIEW signals_v AS
+SELECT
+  s.ts,
+  s.site_id,
+  st.name AS site_name,
+  st.brand,
+  s.metric,
+  s.value,
+  s.unit,
+  s.method,
+  s.quality_score,
+  s.provenance
+FROM signals_timeseries s
+LEFT JOIN sites st ON s.site_id = st.site_id;
+```
+
+### quality_v
+
+**Quality audit view:**
+
+```sql
+CREATE VIEW quality_v AS
+SELECT
+  site_id,
+  metric,
+  toDate(ts) AS date,
+  COUNT(*) AS total_samples,
+  AVG(quality_score) AS avg_quality,
+  SUM(CASE WHEN quality_score < 0.6 THEN 1 ELSE 0 END) AS low_quality_count
+FROM signals_timeseries
+WHERE ts >= NOW() - INTERVAL 30 DAY
+GROUP BY site_id, metric, date
+ORDER BY avg_quality ASC;
+```
+
+## Data Flow
+
+```
+Edge Cameras → MQTT → Kafka → Beam/Flink → ClickHouse (signals_timeseries)
+                                          ↘ PostGIS (provenance_log)
+
+Satellite Imagery → Dagster → Batch Processing → ClickHouse (signals_timeseries)
+                                                ↘ PostGIS (model_inferences)
+```
+
+## Retention Policies
+
+### ClickHouse TTL
+
+```sql
+ALTER TABLE signals_timeseries MODIFY TTL
+  ts + INTERVAL 90 DAY;  -- Raw site-level metrics
+
+ALTER TABLE signals_15m_mv MODIFY TTL
+  ts + INTERVAL 180 DAY;  -- 15m rollups
+
+ALTER TABLE signals_1d_mv MODIFY TTL
+  ts + INTERVAL 365 DAY;  -- Daily rollups
+```
+
+### PostGIS Cleanup
+
+```sql
+-- Delete old audience exports after 7 days
+DELETE FROM audiences
+WHERE completed_at < NOW() - INTERVAL '7 days';
+
+-- Archive old model inferences (move to cold storage)
+-- Keep only last 90 days in hot table
+```
+
+## Example Queries
+
+### Query Last 24 Hours of Occupancy
+
+```sql
+SELECT
+  ts,
+  value AS occupancy,
+  quality_score
+FROM signals_timeseries
+WHERE site_id = 'ATL-CTF-001'
+  AND metric = 'occupancy'
+  AND ts >= NOW() - INTERVAL 1 DAY
+ORDER BY ts ASC;
+```
+
+### Daily Competitor Index
+
+```sql
+SELECT
+  toDate(ts) AS date,
+  AVG(value) AS avg_competitor_index
+FROM signals_timeseries
+WHERE site_id = 'ATL-CTF-001'
+  AND metric = 'competitor_index'
+  AND ts >= NOW() - INTERVAL 30 DAY
+GROUP BY date
+ORDER BY date ASC;
+```
+
+### Find Sites with Low Quality Metrics
+
+```sql
+SELECT
+  site_id,
+  metric,
+  COUNT(*) AS low_quality_samples
+FROM signals_timeseries
+WHERE ts >= NOW() - INTERVAL 7 DAY
+  AND quality_score < 0.6
+GROUP BY site_id, metric
+HAVING low_quality_samples > 100
+ORDER BY low_quality_samples DESC;
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Signals & Metrics" icon="chart-line" href="/concepts/signals-and-metrics">
+    Understand metric types and rollups
+  </Card>
+  <Card title="Storage Architecture" icon="database" href="/implementation/storage">
+    Deep dive into ClickHouse and PostGIS
+  </Card>
+  <Card title="Stream Processing" icon="water" href="/implementation/stream-processing">
+    Learn how data flows from edge to storage
+  </Card>
+</CardGroup>

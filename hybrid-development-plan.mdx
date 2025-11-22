@@ -1,0 +1,798 @@
+---
+title: "Hybrid Development Plan"
+description: "Phased approach: Satellite products first (Phase 1), Edge analytics later (Phase 2)"
+---
+
+## Executive Summary
+
+Evoteli will be built in **two phases** with equal emphasis on frontend and backend:
+
+**Phase 1 (0-90 days): Satellite Intelligence Platform**
+- Focus: HomeScope suite (RoofIQ, SolarFit, DrivewayPro, etc.)
+- Technology: Satellite imagery + AI analysis + Interactive map UI
+- No hardware deployment required
+- Budget: $2,500 (3 months cloud infrastructure)
+
+**Phase 2 (90-180 days): Real-Time Edge Analytics**
+- Focus: LotWatch (parking, drive-thru analytics)
+- Technology: NVIDIA Jetson edge devices + computer vision
+- Adds: Real-time capabilities to existing platform
+- Budget: $7,000 additional (hardware + deployment)
+
+---
+
+## Why Hybrid Approach?
+
+### Phase 1 Benefits (Satellite First)
+✅ **Faster to market** - No hardware logistics
+✅ **Lower initial cost** - $2,500 vs $8,555
+✅ **Broader addressability** - Works globally (not site-specific)
+✅ **Immediate value** - Contractors, insurers, solar installers
+✅ **Prove platform** - Validate tech stack before edge investment
+
+### Phase 2 Benefits (Add Edge Later)
+✅ **Proven demand** - Only build LotWatch if customers want it
+✅ **Leverage Phase 1** - Reuse API, database, frontend
+✅ **Modular addition** - Edge is just another data source
+✅ **Market validation** - Use Phase 1 revenue to fund Phase 2
+
+---
+
+## Phase 1: Satellite Intelligence (0-90 Days)
+
+### Products in Phase 1
+
+<CardGroup cols={2}>
+  <Card title="HomeScope" icon="house">
+    Parcel-level property intelligence suite
+  </Card>
+  <Card title="RoofIQ" icon="house-chimney">
+    Roof condition, geometry, solar suitability
+  </Card>
+  <Card title="SolarFit" icon="solar-panel">
+    Solar installation opportunity scoring
+  </Card>
+  <Card title="DrivewayPro" icon="car">
+    Driveway and hardscape condition analysis
+  </Card>
+  <Card title="TradeZone AI" icon="location-dot">
+    Site selection and market analysis
+  </Card>
+  <Card title="StormShield" icon="cloud-bolt">
+    Post-storm damage triage
+  </Card>
+</CardGroup>
+
+### Phase 1 Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    FRONTEND (React)                      │
+│  • Interactive Map (MapLibre GL + Deck.gl)              │
+│  • AI-Powered Search (natural language)                 │
+│  • Territory Drawing & Advanced Filters                 │
+│  • Real-time Property Analysis                          │
+└────────────────────┬────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────┐
+│                 API GATEWAY (FastAPI)                    │
+│  • OAuth 2.0 Authentication                             │
+│  • GraphQL + REST endpoints                             │
+│  • Rate limiting & caching                              │
+└────────────────────┬────────────────────────────────────┘
+                     │
+         ┌───────────┴───────────┐
+         ▼                       ▼
+┌──────────────────┐    ┌──────────────────┐
+│   PostGIS        │    │  ClickHouse      │
+│ • Parcels        │    │ • Metrics        │
+│ • Geometries     │    │ • Time-series    │
+│ • Spatial index  │    │ • Analytics      │
+└──────────────────┘    └──────────────────┘
+         ▲
+         │
+         ▼
+┌─────────────────────────────────────────────────────────┐
+│            BATCH PROCESSING (Airflow)                    │
+│  • Sentinel-2 satellite imagery download                │
+│  • Google Earth Engine analysis                         │
+│  • Roof segmentation (U-Net)                            │
+│  • Change detection                                      │
+│  • Parcel data enrichment                               │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Phase 1 Tech Stack
+
+**Frontend (50% of effort):**
+- React 18 + TypeScript
+- MapLibre GL JS (map rendering)
+- Deck.gl (data visualization overlays)
+- shadcn/ui (component library)
+- TanStack Query (data fetching)
+- Zustand (state management)
+- Tailwind CSS (styling)
+- Vite (build tool)
+
+**Backend (50% of effort):**
+- FastAPI (Python)
+- PostGIS (spatial database)
+- ClickHouse (analytics database)
+- Valkey (caching)
+- Google Earth Engine (satellite processing)
+- Airflow (batch orchestration)
+
+---
+
+## UI/UX Design System
+
+### Design Principles
+
+**1. AI-Centered Experience**
+- Natural language search ("Find roofs in Atlanta needing replacement")
+- AI suggestions and recommendations
+- Conversational interface for complex queries
+- Predictive search with autocomplete
+
+**2. Map-First Interface**
+- Map takes center stage (80% of screen)
+- Side panels slide in/out for details
+- Layers panel for toggling data overlays
+- Territory drawing with real-time analysis
+
+**3. Speed & Responsiveness**
+- <100ms interaction response time
+- Optimistic UI updates
+- Progressive loading (show map first, data layers after)
+- Infinite scroll for large datasets
+
+**4. Data Visualization**
+- Color-coded property conditions (green/yellow/red)
+- Heat maps for density visualization
+- 3D building extrusions for context
+- Before/after slider for change detection
+
+### Core UI Components
+
+#### 1. Interactive Map Component
+
+```typescript
+// Map with territory drawing and property selection
+
+<MapView>
+  <BaseMap style="satellite" />
+
+  <Layers>
+    <ParcelLayer
+      colorBy="roof_condition"
+      onClick={showPropertyDetails}
+    />
+    <HeatmapLayer
+      data={solarScores}
+      intensity={0.8}
+    />
+    <BuildingsLayer
+      extrusion3D={true}
+    />
+  </Layers>
+
+  <Controls>
+    <TerritoryDrawTool />
+    <LayerToggle />
+    <SearchBar />
+  </Controls>
+
+  <PropertyPanel
+    position="right"
+    property={selectedProperty}
+  />
+</MapView>
+```
+
+**Features:**
+- Click parcels to see details
+- Draw polygons to define territories
+- Search by address, coordinates, or natural language
+- Toggle between satellite, street, terrain views
+- Measure distances and areas
+- Export selections to CSV/GeoJSON
+
+#### 2. AI-Powered Search Bar
+
+```typescript
+// Natural language search with AI interpretation
+
+<AISearchBar
+  placeholder="Find commercial properties with flat roofs > 10,000 sqft in Atlanta"
+  onSearch={handleSearch}
+  suggestions={aiSuggestions}
+/>
+
+// Backend interprets:
+// {
+//   property_type: "commercial",
+//   roof_type: "flat",
+//   roof_area_sqft: { min: 10000 },
+//   location: { city: "Atlanta", state: "GA" }
+// }
+```
+
+**AI Features:**
+- Understands natural language queries
+- Suggests filters based on query
+- Auto-corrects addresses
+- Learns from user behavior
+- Provides query templates
+
+#### 3. Advanced Filter Panel
+
+```typescript
+<FilterPanel>
+  <FilterGroup label="Property">
+    <Select name="property_type" options={["Residential", "Commercial"]} />
+    <RangeSlider name="lot_size_sqft" min={0} max={50000} />
+  </FilterGroup>
+
+  <FilterGroup label="Roof">
+    <Select name="roof_condition" options={["Poor", "Fair", "Good", "Excellent"]} />
+    <RangeSlider name="roof_age_years" min={0} max={50} />
+    <Checkbox name="solar_suitable" label="Solar Suitable" />
+  </FilterGroup>
+
+  <FilterGroup label="Location">
+    <PlaceAutocomplete name="location" />
+    <RangeSlider name="distance_miles" min={0} max={50} />
+  </FilterGroup>
+
+  <Button onClick={applyFilters}>
+    Apply Filters • {resultCount.toLocaleString()} properties
+  </Button>
+</FilterPanel>
+```
+
+**Features:**
+- Real-time result count
+- Save filter presets
+- Share filter URLs
+- Export filtered results
+
+#### 4. Property Details Panel
+
+```typescript
+<PropertyPanel property={property}>
+  <Tabs>
+    <Tab label="Overview">
+      <PropertyImage src={satellite} />
+      <KeyMetrics>
+        <Metric label="Roof Condition" value="Fair" color="yellow" />
+        <Metric label="Solar Score" value="8.2/10" color="green" />
+        <Metric label="Estimated Age" value="15 years" />
+      </KeyMetrics>
+      <AIInsights>
+        💡 Roof shows minor wear. Good candidate for solar installation.
+      </AIInsights>
+    </Tab>
+
+    <Tab label="RoofIQ">
+      <RoofSegmentation mask={roofMask} />
+      <RoofMetrics>
+        <Metric label="Total Area" value="2,450 sqft" />
+        <Metric label="South-Facing" value="1,200 sqft" />
+        <Metric label="Slope" value="4:12 pitch" />
+      </RoofMetrics>
+    </Tab>
+
+    <Tab label="SolarFit">
+      <SolarAnalysis>
+        <Metric label="Annual Production" value="12,500 kWh" />
+        <Metric label="System Size" value="8.5 kW" />
+        <Metric label="ROI" value="7.2 years" />
+      </SolarAnalysis>
+      <SolarMap shading={shadingAnalysis} />
+    </Tab>
+
+    <Tab label="History">
+      <Timeline events={propertyHistory} />
+    </Tab>
+  </Tabs>
+
+  <Actions>
+    <Button variant="primary">Add to Audience</Button>
+    <Button variant="secondary">Export Report</Button>
+    <Button variant="ghost">Share</Button>
+  </Actions>
+</PropertyPanel>
+```
+
+#### 5. Audience Builder
+
+```typescript
+<AudienceBuilder>
+  <Steps>
+    <Step number={1} label="Define Criteria">
+      <FilterPanel />
+      <PreviewMap selectedCount={1247} />
+    </Step>
+
+    <Step number={2} label="Review Matches">
+      <PropertyGrid properties={matches} />
+      <ExclusionList />
+    </Step>
+
+    <Step number={3} label="Export">
+      <ExportOptions>
+        <Radio value="google_ads" label="Google Customer Match" />
+        <Radio value="meta_ads" label="Meta Custom Audience" />
+        <Radio value="csv" label="CSV Download" />
+      </ExportOptions>
+      <PrivacySettings>
+        <Checkbox label="Hash emails (SHA-256)" checked />
+        <Checkbox label="Exclude opt-outs" checked />
+      </PrivacySettings>
+    </Step>
+  </Steps>
+</AudienceBuilder>
+```
+
+### Design System Specifications
+
+**Colors:**
+```css
+/* Primary Palette */
+--primary-900: #064e3b;  /* Dark green */
+--primary-600: #059669;  /* Medium green */
+--primary-400: #34d399;  /* Light green */
+
+/* Semantic Colors */
+--success: #10b981;   /* Green */
+--warning: #f59e0b;   /* Amber */
+--danger: #ef4444;    /* Red */
+--info: #3b82f6;      /* Blue */
+
+/* Neutral */
+--gray-900: #111827;  /* Almost black */
+--gray-600: #4b5563;  /* Medium gray */
+--gray-300: #d1d5db;  /* Light gray */
+--gray-50: #f9fafb;   /* Almost white */
+```
+
+**Typography:**
+```css
+/* Font Stack */
+--font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+--font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+/* Type Scale */
+--text-xs: 0.75rem;    /* 12px */
+--text-sm: 0.875rem;   /* 14px */
+--text-base: 1rem;     /* 16px */
+--text-lg: 1.125rem;   /* 18px */
+--text-xl: 1.25rem;    /* 20px */
+--text-2xl: 1.5rem;    /* 24px */
+--text-3xl: 1.875rem;  /* 30px */
+--text-4xl: 2.25rem;   /* 36px */
+```
+
+**Spacing:**
+```css
+/* 4px base unit */
+--space-1: 0.25rem;   /* 4px */
+--space-2: 0.5rem;    /* 8px */
+--space-3: 0.75rem;   /* 12px */
+--space-4: 1rem;      /* 16px */
+--space-6: 1.5rem;    /* 24px */
+--space-8: 2rem;      /* 32px */
+--space-12: 3rem;     /* 48px */
+--space-16: 4rem;     /* 64px */
+```
+
+**Shadows:**
+```css
+--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+--shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+--shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+```
+
+**Animations:**
+```css
+/* Duration */
+--duration-fast: 150ms;
+--duration-base: 250ms;
+--duration-slow: 350ms;
+
+/* Easing */
+--ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+--ease-out: cubic-bezier(0, 0, 0.2, 1);
+--ease-in: cubic-bezier(0.4, 0, 1, 1);
+```
+
+---
+
+## Development Phases
+
+### Phase 1 Sprint Breakdown
+
+**Sprint 1-2 (Weeks 1-4): Foundation + UI/UX**
+- Week 1-2: Infrastructure + Design System
+  - AWS infrastructure (Terraform)
+  - PostGIS + ClickHouse setup
+  - React app scaffolding
+  - Design system implementation (colors, typography, components)
+  - Figma mockups for all major screens
+
+- Week 3-4: Map Interface + API
+  - MapLibre GL integration
+  - Parcel layer rendering
+  - Territory drawing tool
+  - FastAPI endpoints (parcels, search)
+  - Authentication (OAuth 2.0)
+
+**Sprint 3-4 (Weeks 5-8): Core Features**
+- Week 5-6: Property Analysis
+  - RoofIQ segmentation pipeline (U-Net)
+  - SolarFit analysis (Google Earth Engine)
+  - Property details panel UI
+  - Metrics calculation API
+
+- Week 7-8: Search & Filters
+  - AI-powered search (GPT-4 for query parsing)
+  - Advanced filter panel
+  - Real-time result counts
+  - Search result caching
+
+**Sprint 5-6 (Weeks 9-12): Polish + Launch**
+- Week 9-10: Audience Builder
+  - Audience creation workflow UI
+  - Export integrations (Google Ads, Meta, CSV)
+  - Privacy controls
+  - Batch processing optimization
+
+- Week 11-12: Testing & Launch
+  - E2E testing (Playwright)
+  - Performance optimization
+  - Documentation
+  - Pilot customer onboarding
+
+### Phase 1 Success Criteria
+
+**Technical:**
+- ✅ 1,000+ parcels analyzed with RoofIQ
+- ✅ Map loads in <2 seconds
+- ✅ Search returns results in <500ms
+- ✅ API p95 latency <800ms
+- ✅ 99% uptime
+
+**UX:**
+- ✅ Users can find properties in <30 seconds
+- ✅ <3 clicks to export an audience
+- ✅ Mobile-responsive (tablet support)
+- ✅ Accessibility WCAG 2.1 AA compliant
+
+**Business:**
+- ✅ 2 pilot customers using platform
+- ✅ 50+ properties exported to audiences
+- ✅ Customer satisfaction >8/10
+
+---
+
+## Phase 2: Edge Analytics (90-180 Days)
+
+### Products Added in Phase 2
+
+<CardGroup cols={2}>
+  <Card title="LotWatch" icon="car">
+    Real-time parking and drive-thru analytics
+  </Card>
+  <Card title="GeoPulse" icon="building">
+    Construction activity monitoring (combines satellite + edge)
+  </Card>
+</CardGroup>
+
+### Phase 2 Architecture Additions
+
+```
+┌─────────────────────────────────────────────────────────┐
+│              EDGE DEVICES (Jetson Orin Nano)             │
+│  • PP-YOLOE object detection                            │
+│  • ByteTrack multi-object tracking                      │
+│  • Privacy redaction                                     │
+│  • MQTT publisher                                        │
+└────────────────────┬────────────────────────────────────┘
+                     │ MQTT
+                     ▼
+┌─────────────────────────────────────────────────────────┐
+│           STREAM PROCESSING (Kafka + Flink)             │
+│  • Real-time aggregation                                │
+│  • Anomaly detection                                     │
+│  • Alert triggering                                      │
+└────────────────────┬────────────────────────────────────┘
+                     │
+                     ▼
+              ClickHouse (append metrics)
+```
+
+### Phase 2 UI Additions
+
+**Live Site Dashboard:**
+```typescript
+<LiveSiteDashboard siteId="ATL-CTF-001">
+  <LiveMetrics>
+    <MetricCard
+      label="Current Occupancy"
+      value={18}
+      trend="+3 vs 1hr ago"
+      realtime={true}
+    />
+    <MetricCard
+      label="Avg Queue Length"
+      value={4.2}
+      trend="-0.8 vs yesterday"
+    />
+  </LiveMetrics>
+
+  <TimeSeriesChart
+    metrics={["occupancy", "queue_len"]}
+    timeRange="24h"
+    resolution="5m"
+  />
+
+  <AlertsPanel alerts={recentAlerts} />
+</LiveSiteDashboard>
+```
+
+### Phase 2 Budget
+
+**Hardware:**
+- 10x NVIDIA Jetson Orin Nano: $5,000
+- 10x Installation (cameras, mounting): $2,000
+
+**Cloud (incremental):**
+- Kafka cluster: $300/month
+- Additional ClickHouse capacity: $150/month
+
+**Total Phase 2:** $7,000 + $450/month
+
+---
+
+## Frontend Development Plan
+
+### Week 1-2: Foundation
+
+**Deliverables:**
+- React app with TypeScript + Vite
+- shadcn/ui component library installed
+- Tailwind CSS configured
+- Authentication flow (OAuth 2.0)
+- Routing (React Router)
+- API client (TanStack Query)
+
+**File Structure:**
+```
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── ui/              # shadcn/ui components
+│   │   ├── map/             # Map-specific components
+│   │   ├── search/          # Search components
+│   │   └── property/        # Property detail components
+│   ├── pages/
+│   │   ├── Home.tsx
+│   │   ├── Map.tsx
+│   │   ├── Audiences.tsx
+│   │   └── Settings.tsx
+│   ├── lib/
+│   │   ├── api.ts           # API client
+│   │   ├── auth.ts          # Auth utilities
+│   │   └── utils.ts         # Helper functions
+│   ├── hooks/
+│   │   ├── useMap.ts
+│   │   ├── useProperties.ts
+│   │   └── useSearch.ts
+│   ├── stores/
+│   │   ├── mapStore.ts      # Zustand store for map state
+│   │   └── userStore.ts     # User preferences
+│   └── styles/
+│       └── globals.css      # Global styles + Tailwind
+├── public/
+│   └── map-styles/          # MapLibre style JSON
+└── package.json
+```
+
+### Week 3-4: Map Interface
+
+**Components to Build:**
+1. `BaseMap.tsx` - MapLibre GL wrapper
+2. `ParcelLayer.tsx` - Render parcel polygons
+3. `TerritoryDrawTool.tsx` - Polygon drawing
+4. `LayerToggle.tsx` - Toggle data layers
+5. `MapControls.tsx` - Zoom, locate, measure tools
+
+**Features:**
+- Load vector tiles from PostGIS
+- Color parcels by condition (choropleth)
+- Click parcels to select
+- Draw territories (save polygons)
+- Toggle between satellite/street views
+
+### Week 5-6: Property Details
+
+**Components to Build:**
+1. `PropertyPanel.tsx` - Slide-in panel
+2. `PropertyOverview.tsx` - Key metrics
+3. `RoofIQTab.tsx` - Roof analysis
+4. `SolarFitTab.tsx` - Solar suitability
+5. `PropertyHistory.tsx` - Timeline
+
+**Data Flow:**
+```
+User clicks parcel
+  ↓
+mapStore.selectProperty(parcelId)
+  ↓
+useProperty(parcelId) fetches from API
+  ↓
+PropertyPanel renders with data
+```
+
+### Week 7-8: Search & Filters
+
+**Components to Build:**
+1. `AISearchBar.tsx` - Natural language search
+2. `FilterPanel.tsx` - Advanced filters
+3. `SearchResults.tsx` - Result list
+4. `SavedSearches.tsx` - Search presets
+
+**AI Search Implementation:**
+```typescript
+// Frontend sends natural language query
+const query = "Find commercial roofs in Atlanta needing replacement";
+
+// Backend (FastAPI + GPT-4) parses to structured filters
+const filters = await ai.parseQuery(query);
+// {
+//   location: { city: "Atlanta", state: "GA" },
+//   property_type: "commercial",
+//   roof_condition: { max: 0.6 }
+// }
+
+// Execute search
+const results = await api.searchProperties(filters);
+```
+
+### Week 9-10: Audience Builder
+
+**Components to Build:**
+1. `AudienceWizard.tsx` - Multi-step workflow
+2. `AudiencePreview.tsx` - Selected properties
+3. `ExportOptions.tsx` - Destination selection
+4. `AudienceList.tsx` - Saved audiences
+
+**Workflow:**
+```
+Step 1: Define filters → Preview map
+Step 2: Review matches → Exclude specific properties
+Step 3: Choose export → Google Ads / Meta / CSV
+Step 4: Schedule → One-time or recurring
+```
+
+### Week 11-12: Polish
+
+**Tasks:**
+- E2E tests with Playwright
+- Performance optimization (code splitting, lazy loading)
+- Error boundaries and loading states
+- Toast notifications
+- Keyboard shortcuts
+- Mobile responsive layout (iPad support)
+- Accessibility audit (WCAG 2.1 AA)
+
+---
+
+## Backend Development Plan
+
+### Week 1-2: Infrastructure
+
+**Deliverables:**
+- AWS infrastructure (Terraform)
+- PostGIS database with parcel schema
+- ClickHouse database with metrics schema
+- Valkey cache
+- FastAPI app scaffolding
+
+### Week 3-4: Core API
+
+**Endpoints to Build:**
+1. `POST /v1/auth/login` - OAuth login
+2. `GET /v1/parcels` - Search parcels
+3. `GET /v1/parcels/{id}` - Get parcel details
+4. `POST /v1/territories` - Save territory polygon
+5. `GET /v1/search` - AI-powered search
+
+### Week 5-6: Property Analysis
+
+**Services to Build:**
+1. Roof segmentation pipeline (U-Net on Sentinel-2)
+2. Solar analysis (Google Earth Engine API)
+3. Condition scoring algorithm
+4. Metrics calculation and storage
+
+### Week 7-8: Search & Caching
+
+**Features:**
+- GPT-4 query parsing (natural language → filters)
+- Valkey caching layer (5-minute TTL)
+- PostGIS spatial queries optimization
+- Result pagination (cursor-based)
+
+### Week 9-10: Audiences
+
+**Endpoints:**
+1. `POST /v1/audiences` - Create audience
+2. `GET /v1/audiences/{id}` - Get audience
+3. `POST /v1/audiences/{id}/export` - Export to destination
+4. `GET /v1/audiences/{id}/status` - Export job status
+
+**Integrations:**
+- Google Ads Customer Match API
+- Meta Conversions API
+- CSV generation with S3 upload
+
+### Week 11-12: Optimization
+
+**Tasks:**
+- Database query optimization
+- API rate limiting
+- OpenAPI documentation
+- Error handling and logging
+- Performance testing (load tests)
+
+---
+
+## Success Metrics
+
+### Phase 1 Launch Criteria
+
+**Must Have (Go/No-Go):**
+- ✅ 1,000+ parcels with RoofIQ analysis
+- ✅ Map loads in <3 seconds
+- ✅ Search returns results in <1 second
+- ✅ 2 pilot customers trained
+- ✅ No critical security vulnerabilities
+
+**Nice to Have:**
+- Mobile app (PWA)
+- Offline mode
+- Multi-language support
+
+### KPIs to Track
+
+**Product:**
+- Daily active users
+- Searches per user
+- Audiences created
+- Properties exported
+
+**Technical:**
+- API p95 latency
+- Error rate
+- Cache hit rate
+- Database query time
+
+**Business:**
+- Customer acquisition cost
+- Monthly recurring revenue
+- Customer satisfaction (NPS)
+- Feature adoption rate
+
+---
+
+## Next Steps
+
+1. **Approve this plan** - Confirm hybrid approach and UI/UX focus
+2. **Design mockups** - Create Figma designs for all major screens
+3. **Set up infrastructure** - Deploy AWS resources with Terraform
+4. **Start Sprint 1** - Begin frontend and backend development in parallel
+
+Ready to proceed? I'll start building the complete frontend application with the interactive map interface and AI-powered search! 🚀

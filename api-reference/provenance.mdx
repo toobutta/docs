@@ -1,0 +1,349 @@
+---
+title: "Provenance API"
+description: "Fetch source attribution, model lineage, and quality metadata"
+---
+
+## Overview
+
+The **Provenance API** provides detailed source attribution, model lineage, imagery licensing, and quality metadata for every metric returned by the platform. This ensures transparency, compliance, and auditability.
+
+## Endpoint
+
+```
+GET /v1/provenance/{metric_id}
+```
+
+## Fetch Provenance
+
+### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `metric_id` | string | Metric identifier (from Signals Query response) |
+
+### Example Request
+
+```bash
+curl -X GET https://api.evoteli.com/v1/provenance/metric-20251106-001 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Response
+
+```json
+{
+  "metric_id": "metric-20251106-001",
+  "metric": "occupancy",
+  "site_id": "ATL-CTF-001",
+  "ts": "2025-11-06T11:00:00Z",
+  "value": 18.4,
+  "provenance": {
+    "sources": [
+      {
+        "type": "edge_camera",
+        "id": "edge_cam:cam1",
+        "location": "Parking Lot - South",
+        "installed_date": "2025-09-15",
+        "last_calibration": "2025-10-01"
+      }
+    ],
+    "imagery_license": {
+      "license_id": null,
+      "provider": null,
+      "terms_url": null
+    },
+    "model": {
+      "name": "YOLO11n",
+      "version": "2025.10",
+      "framework": "PyTorch 2.1",
+      "precision": "FP16",
+      "training_date": "2025-10-15",
+      "validation_accuracy": 0.89
+    },
+    "processing": {
+      "method": "edge_cv",
+      "inference_time_ms": 42,
+      "redaction_applied": true,
+      "aggregation": null
+    },
+    "quality": {
+      "quality_score": 0.82,
+      "confidence_interval": [16.8, 20.0],
+      "data_completeness_pct": 98.5,
+      "flags": []
+    }
+  },
+  "created_at": "2025-11-06T11:00:05Z"
+}
+```
+
+## Provenance Schema
+
+### Sources Array
+
+Each source object contains:
+
+| Field | Description |
+|-------|-------------|
+| `type` | Source type: `edge_camera`, `satellite`, `aerial`, `mobile_panel`, `external_api` |
+| `id` | Unique source identifier |
+| `location` | Human-readable location/description |
+| `installed_date` | Installation/activation date (cameras/sensors) |
+| `last_calibration` | Last calibration date (if applicable) |
+
+### Imagery License
+
+For satellite/aerial metrics:
+
+| Field | Description |
+|-------|-------------|
+| `license_id` | Internal license tracking ID |
+| `provider` | Imagery provider (Planet, Maxar, Nearmap, etc.) |
+| `acquisition_date` | Image capture date |
+| `resolution_cm` | Spatial resolution (cm/pixel) |
+| `terms_url` | Link to provider terms of service |
+
+### Model Object
+
+| Field | Description |
+|-------|-------------|
+| `name` | Model name (YOLO11n, SAM, ChangeFormer, etc.) |
+| `version` | Model version |
+| `framework` | ML framework (PyTorch, TensorFlow, etc.) |
+| `precision` | Inference precision (FP32, FP16, INT8) |
+| `training_date` | Model training completion date |
+| `validation_accuracy` | Validation accuracy (0-1) |
+
+### Processing Object
+
+| Field | Description |
+|-------|-------------|
+| `method` | Processing method: `edge_cv`, `sat_change`, `aerial_oblique`, `fused` |
+| `inference_time_ms` | Inference duration (milliseconds) |
+| `redaction_applied` | Privacy redaction applied (boolean) |
+| `aggregation` | Aggregation function (mean, median, sum, max) |
+
+### Quality Object
+
+| Field | Description |
+|-------|-------------|
+| `quality_score` | Overall quality score (0-1) |
+| `confidence_interval` | [lower, upper] bounds (95% CI) |
+| `data_completeness_pct` | % of expected data points present |
+| `flags` | Quality warning flags (array of strings) |
+
+## Example: Satellite Imagery Provenance
+
+**Request:**
+```bash
+curl -X GET https://api.evoteli.com/v1/provenance/metric-20251106-002 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Response:**
+```json
+{
+  "metric_id": "metric-20251106-002",
+  "metric": "roof_condition",
+  "polygon_id": "PARCEL-441",
+  "ts": "2025-11-01T00:00:00Z",
+  "value": 0.68,
+  "provenance": {
+    "sources": [
+      {
+        "type": "satellite",
+        "id": "planet:tile-20251101-abc123",
+        "location": "Atlanta Metro Area",
+        "acquisition_date": "2025-11-01T14:23:00Z",
+        "cloud_cover_pct": 3.2
+      }
+    ],
+    "imagery_license": {
+      "license_id": "LIC-PLANET-2025-001",
+      "provider": "Planet Labs",
+      "acquisition_date": "2025-11-01",
+      "resolution_cm": 50,
+      "terms_url": "https://www.planet.com/terms/"
+    },
+    "model": {
+      "name": "ChangeFormer",
+      "version": "v1.2",
+      "framework": "PyTorch 2.1",
+      "precision": "FP32",
+      "training_date": "2025-09-20",
+      "validation_accuracy": 0.84
+    },
+    "processing": {
+      "method": "sat_change",
+      "inference_time_ms": 1240,
+      "redaction_applied": false,
+      "aggregation": null
+    },
+    "quality": {
+      "quality_score": 0.79,
+      "confidence_interval": [0.62, 0.74],
+      "data_completeness_pct": 100,
+      "flags": ["baseline_image_older_than_1yr"]
+    }
+  }
+}
+```
+
+## Quality Flags
+
+Common quality warning flags:
+
+| Flag | Description |
+|------|-------------|
+| `baseline_image_older_than_1yr` | Change detection baseline >1 year old |
+| `high_cloud_cover` | Satellite image cloud cover >20% |
+| `low_light_conditions` | Camera footage in low-light (dusk/dawn) |
+| `occlusion_detected` | Partial view obstruction detected |
+| `calibration_overdue` | Camera calibration >90 days old |
+| `model_drift_warning` | Model performance drift detected |
+
+## Use Cases
+
+### 1. Compliance Reporting
+
+Generate reports with full source attribution for regulatory submissions.
+
+**Example:**
+```python
+metric = client.signals.query(...).rows[0]
+provenance = client.provenance.get(metric.metric_id)
+
+print(f"Source: {provenance.sources[0].type}")
+print(f"Model: {provenance.model.name} v{provenance.model.version}")
+print(f"License: {provenance.imagery_license.provider}")
+```
+
+### 2. Quality Auditing
+
+Audit low-quality metrics to identify systemic issues.
+
+**Example:**
+```python
+low_quality_metrics = [
+    row for row in response.rows if row.quality_score < 0.6
+]
+
+for metric in low_quality_metrics:
+    prov = client.provenance.get(metric.metric_id)
+    print(f"Flags: {prov.quality.flags}")
+```
+
+### 3. Model Performance Tracking
+
+Track model versions and accuracy across deployments.
+
+**Example:**
+```sql
+SELECT
+  model_name,
+  model_version,
+  AVG(quality_score) AS avg_quality,
+  COUNT(*) AS total_inferences
+FROM provenance_log
+WHERE created_at >= NOW() - INTERVAL '30 days'
+GROUP BY model_name, model_version
+ORDER BY avg_quality DESC;
+```
+
+## Bulk Provenance Query
+
+For multiple metrics:
+
+```
+POST /v1/provenance:batch
+```
+
+**Request:**
+```json
+{
+  "metric_ids": [
+    "metric-20251106-001",
+    "metric-20251106-002",
+    "metric-20251106-003"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "results": [
+    { "metric_id": "metric-20251106-001", "provenance": { ... } },
+    { "metric_id": "metric-20251106-002", "provenance": { ... } },
+    { "metric_id": "metric-20251106-003", "provenance": { ... } }
+  ]
+}
+```
+
+## SDK Examples
+
+### Python
+
+```python
+from geointel import Client
+
+client = Client(client_id="...", client_secret="...")
+
+# Query metrics
+response = client.signals.query(
+    site_id="ATL-CTF-001",
+    metrics=["occupancy"],
+    time_from="2025-11-06T00:00:00Z",
+    time_to="2025-11-07T00:00:00Z"
+)
+
+# Fetch provenance for first metric
+row = response.rows[0]
+provenance = client.provenance.get(row.metric_id)
+
+print(f"Source: {provenance.sources[0].id}")
+print(f"Model: {provenance.model.name} v{provenance.model.version}")
+print(f"Quality: {provenance.quality.quality_score:.2f}")
+print(f"Flags: {provenance.quality.flags}")
+```
+
+### Node.js
+
+```javascript
+const { Client } = require('@geointel/sdk');
+
+const client = new Client({ clientId: '...', clientSecret: '...' });
+
+// Query metrics
+const response = await client.signals.query({
+  siteId: 'ATL-CTF-001',
+  metrics: ['occupancy'],
+  timeFrom: '2025-11-06T00:00:00Z',
+  timeTo: '2025-11-07T00:00:00Z'
+});
+
+// Fetch provenance
+const row = response.rows[0];
+const provenance = await client.provenance.get(row.metricId);
+
+console.log(`Source: ${provenance.sources[0].id}`);
+console.log(`Quality: ${provenance.quality.qualityScore}`);
+```
+
+## Retention
+
+Provenance records are retained for **7 years** to support compliance and audit requirements, even after metric time-series data expires (90-365 days).
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Signals Query" icon="chart-line" href="/api-reference/signals-query">
+    Query metrics with provenance
+  </Card>
+  <Card title="Data Governance" icon="gavel" href="/compliance/data-governance">
+    Learn about retention policies
+  </Card>
+  <Card title="Licensing" icon="scale-balanced" href="/compliance/licensing">
+    Review imagery licensing
+  </Card>
+</CardGroup>

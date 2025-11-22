@@ -1,0 +1,821 @@
+---
+title: "API Gateway Scaffolding"
+description: "FastAPI application structure and initial implementation"
+---
+
+## Overview
+
+The API Gateway is a FastAPI application that serves as the primary interface for the Evoteli. It handles authentication, query routing, caching, and observability.
+
+## Project Structure
+
+```
+services/api-gateway/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                 # FastAPI app entry point
+│   ├── config.py               # Configuration management
+│   ├── dependencies.py         # Dependency injection
+│   ├── middleware/
+│   │   ├── __init__.py
+│   │   ├── auth.py             # OAuth middleware
+│   │   ├── logging.py          # Request logging
+│   │   └── tracing.py          # OpenTelemetry tracing
+│   ├── routers/
+│   │   ├── __init__.py
+│   │   ├── signals.py          # /v1/signals:query endpoint
+│   │   ├── alerts.py           # /v1/alerts endpoints
+│   │   ├── audiences.py        # /v1/audiences endpoints
+│   │   ├── earth_engine.py     # /v1/earth-engine endpoints
+│   │   └── provenance.py       # /v1/provenance endpoints
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── signals.py          # Pydantic models for signals
+│   │   ├── alerts.py           # Pydantic models for alerts
+│   │   └── common.py           # Common models
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── clickhouse.py       # ClickHouse client wrapper
+│   │   ├── postgres.py         # PostgreSQL/PostGIS client
+│   │   ├── cache.py            # Valkey/Redis cache
+│   │   └── auth.py             # OAuth 2.0 client
+│   └── utils/
+│       ├── __init__.py
+│       ├── query_builder.py    # SQL query builder
+│       └── validators.py       # Custom validators
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py             # Pytest fixtures
+│   ├── test_signals.py
+│   ├── test_alerts.py
+│   └── test_integration.py
+├── Dockerfile
+├── pyproject.toml              # Poetry dependencies
+├── poetry.lock
+└── README.md
+```
+
+## Core Files
+
+### app/main.py
+
+```python
+"""
+FastAPI application entry point for Evoteli API Gateway.
+"""
+
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+import logging
+
+from app.config import settings
+from app.middleware.auth import AuthMiddleware
+from app.middleware.logging import LoggingMiddleware
+from app.middleware.tracing import setup_tracing
+from app.routers import signals, alerts, audiences, earth_engine, provenance
+from app.services.clickhouse import clickhouse_client
+from app.services.postgres import postgres_client
+from app.services.cache import cache_client
+
+# Configure logging
+logging.basicConfig(
+    level=settings.LOG_LEVEL,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for startup and shutdown events.
+    """
+    # Startup
+    logger.info("Starting Evoteli API Gateway")
+
+    # Initialize database connections
+    await clickhouse_client.connect()
+    await postgres_client.connect()
+    await cache_client.connect()
+
+    # Setup tracing
+    setup_tracing(app)
+
+    logger.info(f"API Gateway started on {settings.HOST}:{settings.PORT}")
+
+    yield
+
+    # Shutdown
+    logger.info("Shutting down API Gateway")
+    await clickhouse_client.disconnect()
+    await postgres_client.disconnect()
+    await cache_client.disconnect()
+
+# Create FastAPI app
+app = FastAPI(
+    title="Evoteli API",
+    description="Decision-grade signals from computer vision, satellite imagery, and geospatial data",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+    lifespan=lifespan
+)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Custom middleware
+app.add_middleware(LoggingMiddleware)
+app.add_middleware(AuthMiddleware)
+
+# Exception handlers
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "internal_server_error",
+            "message": "An unexpected error occurred"
+        }
+    )
+
+# Health check endpoint
+@app.get("/health", tags=["Health"])
+async def health_check():
+    """
+    Health check endpoint for load balancers and monitoring.
+    """
+    return {
+        "status": "healthy",
+        "version": "1.0.0",
+        "services": {
+            "clickhouse": await clickhouse_client.ping(),
+            "postgres": await postgres_client.ping(),
+            "cache": await cache_client.ping()
+        }
+    }
+
+@app.get("/", tags=["Root"])
+async def root():
+    """
+    Root endpoint with API information.
+    """
+    return {
+        "name": "Evoteli API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/health"
+    }
+
+# Include routers
+app.include_router(signals.router, prefix="/v1", tags=["Signals"])
+app.include_router(alerts.router, prefix="/v1", tags=["Alerts"])
+app.include_router(audiences.router, prefix="/v1", tags=["Audiences"])
+app.include_router(earth_engine.router, prefix="/v1", tags=["Earth Engine"])
+app.include_router(provenance.router, prefix="/v1", tags=["Provenance"])
+
+# OpenTelemetry instrumentation
+FastAPIInstrumentor.instrument_app(app)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.DEBUG,
+        log_level=settings.LOG_LEVEL.lower()
+    )
+```
+
+### app/config.py
+
+```python
+"""
+Configuration management using Pydantic settings.
+"""
+
+from pydantic_settings import BaseSettings
+from typing import List
+import os
+
+class Settings(BaseSettings):
+    """
+    Application settings loaded from environment variables.
+    """
+
+    # Application
+    ENV: str = "development"
+    DEBUG: bool = True
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
+    LOG_LEVEL: str = "INFO"
+
+    # CORS
+    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
+
+    # ClickHouse
+    CLICKHOUSE_HOST: str = "localhost"
+    CLICKHOUSE_PORT: int = 8123
+    CLICKHOUSE_USER: str = "geointel"
+    CLICKHOUSE_PASSWORD: str = "dev_password"
+    CLICKHOUSE_DB: str = "geointel"
+
+    # PostgreSQL/PostGIS
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_USER: str = "geointel"
+    POSTGRES_PASSWORD: str = "dev_password"
+    POSTGRES_DB: str = "geointel"
+
+    # Valkey/Redis
+    VALKEY_HOST: str = "localhost"
+    VALKEY_PORT: int = 6379
+    VALKEY_DB: int = 0
+    CACHE_TTL: int = 300  # 5 minutes
+
+    # Keycloak OAuth
+    KEYCLOAK_URL: str = "http://localhost:8180"
+    KEYCLOAK_REALM: str = "geointel"
+    KEYCLOAK_CLIENT_ID: str = "api-gateway"
+    KEYCLOAK_CLIENT_SECRET: str = ""
+
+    # OpenTelemetry
+    JAEGER_AGENT_HOST: str = "localhost"
+    JAEGER_AGENT_PORT: int = 6831
+    OTEL_SERVICE_NAME: str = "api-gateway"
+
+    # Rate Limiting
+    RATE_LIMIT_PER_MINUTE: int = 60
+
+    # Query Limits
+    MAX_TIME_RANGE_DAYS: int = 90
+    MAX_RESULTS: int = 100000
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+
+settings = Settings()
+```
+
+### app/routers/signals.py
+
+```python
+"""
+Signals query endpoint implementation.
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import List, Optional
+from datetime import datetime
+import hashlib
+import json
+
+from app.models.signals import (
+    SignalsQueryRequest,
+    SignalsQueryResponse,
+    SignalRow
+)
+from app.services.clickhouse import clickhouse_client
+from app.services.cache import cache_client
+from app.dependencies import get_current_user
+from app.utils.query_builder import build_signals_query
+
+router = APIRouter()
+
+@router.post("/signals:query", response_model=SignalsQueryResponse)
+async def query_signals(
+    request: SignalsQueryRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Query time-series signals for a site or polygon.
+
+    Returns metrics with timestamps, values, units, quality scores, and provenance.
+    """
+
+    # Validate time range
+    if (request.time_to - request.time_from).days > 90:
+        raise HTTPException(
+            status_code=400,
+            detail="Time range cannot exceed 90 days"
+        )
+
+    # Generate cache key
+    cache_key = _generate_cache_key(request)
+
+    # Check cache
+    cached_result = await cache_client.get(cache_key)
+    if cached_result:
+        return SignalsQueryResponse.parse_raw(cached_result)
+
+    # Build query
+    query = build_signals_query(request)
+
+    # Execute query
+    try:
+        result = await clickhouse_client.execute(query)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Query execution failed: {str(e)}"
+        )
+
+    # Parse results
+    rows = [
+        SignalRow(
+            ts=row["ts"],
+            site_id=row.get("site_id"),
+            polygon_id=row.get("polygon_id"),
+            metric=row["metric"],
+            value=row["value"],
+            unit=row["unit"],
+            method=row.get("method"),
+            quality_score=row.get("quality_score"),
+            provenance=json.loads(row["provenance"]) if row.get("provenance") else None
+        )
+        for row in result
+    ]
+
+    # Build response
+    response = SignalsQueryResponse(
+        rows=rows,
+        count=len(rows),
+        rollup=request.rollup
+    )
+
+    # Cache result
+    await cache_client.set(
+        cache_key,
+        response.json(),
+        ttl=300  # 5 minutes
+    )
+
+    return response
+
+def _generate_cache_key(request: SignalsQueryRequest) -> str:
+    """
+    Generate cache key from request parameters.
+    """
+    key_data = {
+        "site_id": request.site_id,
+        "polygon_id": request.polygon_id,
+        "metrics": sorted(request.metrics),
+        "time_from": request.time_from.isoformat(),
+        "time_to": request.time_to.isoformat(),
+        "rollup": request.rollup,
+        "min_quality": request.min_quality
+    }
+    key_str = json.dumps(key_data, sort_keys=True)
+    return f"signals:{hashlib.md5(key_str.encode()).hexdigest()}"
+```
+
+### app/models/signals.py
+
+```python
+"""
+Pydantic models for signals endpoints.
+"""
+
+from pydantic import BaseModel, Field, validator
+from typing import List, Optional, Dict, Any
+from datetime import datetime
+from enum import Enum
+
+class RollupEnum(str, Enum):
+    """
+    Available rollup intervals.
+    """
+    RAW = "raw"
+    FIVE_MIN = "5m"
+    FIFTEEN_MIN = "15m"
+    ONE_HOUR = "1h"
+    ONE_DAY = "1d"
+
+class MethodEnum(str, Enum):
+    """
+    Data collection methods.
+    """
+    EDGE_CV = "edge_cv"
+    SAT_CHANGE = "sat_change"
+    AERIAL_OBLIQUE = "aerial_oblique"
+    EARTH_ENGINE = "earth_engine"
+    MOBILE_PANEL = "mobile_panel"
+    FUSED = "fused"
+
+class SignalsQueryRequest(BaseModel):
+    """
+    Request model for signals:query endpoint.
+    """
+    site_id: Optional[str] = Field(None, description="Site identifier")
+    polygon_id: Optional[str] = Field(None, description="Polygon identifier")
+    metrics: List[str] = Field(..., description="Metrics to query", min_items=1, max_items=20)
+    time_from: datetime = Field(..., description="Start timestamp (UTC)")
+    time_to: datetime = Field(..., description="End timestamp (UTC)")
+    rollup: RollupEnum = Field(RollupEnum.RAW, description="Rollup interval")
+    min_quality: Optional[float] = Field(None, ge=0.0, le=1.0, description="Minimum quality score filter")
+
+    @validator("metrics")
+    def validate_metrics(cls, v):
+        """
+        Validate metric names.
+        """
+        allowed_metrics = {
+            # Commercial
+            "occupancy", "queue_len", "dwell_median", "dwell_p95", "turnover_rate",
+            "service_time_p50", "service_time_p95", "competitor_index",
+            # Residential
+            "roof_area", "roof_slope", "roof_condition", "solar_score", "shade_index",
+            "driveway_area", "driveway_condition", "tree_count", "tree_canopy_pct",
+            # Construction
+            "construction_activity", "equipment_count", "material_delivery"
+        }
+
+        invalid = set(v) - allowed_metrics
+        if invalid:
+            raise ValueError(f"Invalid metrics: {invalid}")
+
+        return v
+
+    @validator("time_to")
+    def validate_time_range(cls, v, values):
+        """
+        Validate time range is positive and not in future.
+        """
+        if "time_from" in values and v <= values["time_from"]:
+            raise ValueError("time_to must be after time_from")
+
+        if v > datetime.utcnow():
+            raise ValueError("time_to cannot be in the future")
+
+        return v
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "site_id": "ATL-CTF-001",
+                "metrics": ["occupancy", "queue_len"],
+                "time_from": "2025-11-05T00:00:00Z",
+                "time_to": "2025-11-06T00:00:00Z",
+                "rollup": "15m",
+                "min_quality": 0.7
+            }
+        }
+
+class SignalRow(BaseModel):
+    """
+    Single signal data point.
+    """
+    ts: datetime = Field(..., description="Timestamp (UTC)")
+    site_id: Optional[str] = Field(None, description="Site identifier")
+    polygon_id: Optional[str] = Field(None, description="Polygon identifier")
+    metric: str = Field(..., description="Metric name")
+    value: float = Field(..., description="Metric value")
+    unit: str = Field(..., description="Metric unit")
+    method: Optional[MethodEnum] = Field(None, description="Data collection method")
+    quality_score: Optional[float] = Field(None, ge=0.0, le=1.0, description="Quality score (0-1)")
+    provenance: Optional[Dict[str, Any]] = Field(None, description="Provenance metadata")
+
+class SignalsQueryResponse(BaseModel):
+    """
+    Response model for signals:query endpoint.
+    """
+    rows: List[SignalRow] = Field(..., description="Query results")
+    count: int = Field(..., description="Number of rows returned")
+    rollup: RollupEnum = Field(..., description="Rollup interval used")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "rows": [
+                    {
+                        "ts": "2025-11-05T10:00:00Z",
+                        "site_id": "ATL-CTF-001",
+                        "metric": "occupancy",
+                        "value": 18.4,
+                        "unit": "count",
+                        "method": "edge_cv",
+                        "quality_score": 0.82
+                    }
+                ],
+                "count": 1,
+                "rollup": "15m"
+            }
+        }
+```
+
+### app/services/clickhouse.py
+
+```python
+"""
+ClickHouse client wrapper with connection pooling.
+"""
+
+import asyncio
+from typing import List, Dict, Any
+import httpx
+from app.config import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
+class ClickHouseClient:
+    """
+    Async ClickHouse client with HTTP interface.
+    """
+
+    def __init__(self):
+        self.base_url = f"http://{settings.CLICKHOUSE_HOST}:{settings.CLICKHOUSE_PORT}"
+        self.auth = (settings.CLICKHOUSE_USER, settings.CLICKHOUSE_PASSWORD)
+        self.client: Optional[httpx.AsyncClient] = None
+
+    async def connect(self):
+        """
+        Initialize HTTP client.
+        """
+        self.client = httpx.AsyncClient(
+            base_url=self.base_url,
+            auth=self.auth,
+            timeout=30.0
+        )
+        logger.info(f"Connected to ClickHouse at {self.base_url}")
+
+    async def disconnect(self):
+        """
+        Close HTTP client.
+        """
+        if self.client:
+            await self.client.aclose()
+            logger.info("Disconnected from ClickHouse")
+
+    async def execute(self, query: str, params: Dict[str, Any] = None) -> List[Dict[str, Any]]:
+        """
+        Execute a SELECT query and return results as list of dicts.
+        """
+        response = await self.client.post(
+            "/",
+            params={
+                "database": settings.CLICKHOUSE_DB,
+                "default_format": "JSONEachRow"
+            },
+            content=query.encode()
+        )
+
+        response.raise_for_status()
+
+        # Parse JSON lines
+        results = []
+        for line in response.text.strip().split("\n"):
+            if line:
+                results.append(json.loads(line))
+
+        return results
+
+    async def ping(self) -> bool:
+        """
+        Ping ClickHouse server.
+        """
+        try:
+            response = await self.client.get("/ping")
+            return response.status_code == 200
+        except Exception as e:
+            logger.error(f"ClickHouse ping failed: {e}")
+            return False
+
+clickhouse_client = ClickHouseClient()
+```
+
+### Dockerfile
+
+```dockerfile
+# Use official Python 3.11 slim image
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Poetry
+RUN pip install poetry==1.6.1
+
+# Copy dependency files
+COPY pyproject.toml poetry.lock ./
+
+# Install Python dependencies
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-interaction --no-ansi --no-root
+
+# Copy application code
+COPY app/ ./app/
+
+# Expose port
+EXPOSE 8000
+
+# Run application
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+### pyproject.toml
+
+```toml
+[tool.poetry]
+name = "api-gateway"
+version = "1.0.0"
+description = "Evoteli API Gateway"
+authors = ["Your Team <team@evoteli.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.104.0"
+uvicorn = {extras = ["standard"], version = "^0.24.0"}
+pydantic = "^2.5.0"
+pydantic-settings = "^2.1.0"
+httpx = "^0.25.0"
+asyncpg = "^0.29.0"
+valkey = "^5.0.0"  # Redis-compatible client
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+python-multipart = "^0.0.6"
+opentelemetry-api = "^1.21.0"
+opentelemetry-sdk = "^1.21.0"
+opentelemetry-instrumentation-fastapi = "^0.42b0"
+opentelemetry-exporter-jaeger = "^1.21.0"
+prometheus-client = "^0.19.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.4.0"
+pytest-asyncio = "^0.21.0"
+pytest-cov = "^4.1.0"
+httpx = "^0.25.0"
+black = "^23.11.0"
+isort = "^5.12.0"
+mypy = "^1.7.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+```
+
+## Testing
+
+### tests/conftest.py
+
+```python
+"""
+Pytest fixtures for API Gateway tests.
+"""
+
+import pytest
+from fastapi.testclient import TestClient
+from app.main import app
+
+@pytest.fixture
+def client():
+    """
+    Test client fixture.
+    """
+    return TestClient(app)
+
+@pytest.fixture
+def mock_auth_token():
+    """
+    Mock OAuth token for authenticated requests.
+    """
+    return "Bearer mock_token_12345"
+```
+
+### tests/test_signals.py
+
+```python
+"""
+Tests for signals endpoints.
+"""
+
+import pytest
+from datetime import datetime, timedelta
+
+def test_query_signals_success(client, mock_auth_token):
+    """
+    Test successful signals query.
+    """
+    response = client.post(
+        "/v1/signals:query",
+        headers={"Authorization": mock_auth_token},
+        json={
+            "site_id": "ATL-CTF-001",
+            "metrics": ["occupancy"],
+            "time_from": (datetime.utcnow() - timedelta(days=1)).isoformat() + "Z",
+            "time_to": datetime.utcnow().isoformat() + "Z",
+            "rollup": "15m"
+        }
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "rows" in data
+    assert "count" in data
+    assert data["rollup"] == "15m"
+
+def test_query_signals_invalid_metric(client, mock_auth_token):
+    """
+    Test query with invalid metric name.
+    """
+    response = client.post(
+        "/v1/signals:query",
+        headers={"Authorization": mock_auth_token},
+        json={
+            "site_id": "ATL-CTF-001",
+            "metrics": ["invalid_metric"],
+            "time_from": (datetime.utcnow() - timedelta(days=1)).isoformat() + "Z",
+            "time_to": datetime.utcnow().isoformat() + "Z"
+        }
+    )
+
+    assert response.status_code == 422  # Validation error
+
+def test_query_signals_time_range_too_large(client, mock_auth_token):
+    """
+    Test query with time range exceeding 90 days.
+    """
+    response = client.post(
+        "/v1/signals:query",
+        headers={"Authorization": mock_auth_token},
+        json={
+            "site_id": "ATL-CTF-001",
+            "metrics": ["occupancy"],
+            "time_from": (datetime.utcnow() - timedelta(days=100)).isoformat() + "Z",
+            "time_to": datetime.utcnow().isoformat() + "Z"
+        }
+    )
+
+    assert response.status_code == 400
+```
+
+## Running the API Gateway
+
+```bash
+# Install dependencies
+cd services/api-gateway
+poetry install
+
+# Run development server
+poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Run tests
+poetry run pytest
+
+# Run with coverage
+poetry run pytest --cov=app --cov-report=html
+
+# Format code
+poetry run black app/
+poetry run isort app/
+
+# Type checking
+poetry run mypy app/
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Docker Compose" icon="docker" href="/deployment/docker-compose">
+    Run the full stack locally
+  </Card>
+  <Card title="Authentication" icon="lock" href="/api-reference/authentication">
+    Set up OAuth 2.0 with Keycloak
+  </Card>
+  <Card title="CI/CD Pipeline" icon="rocket" href="/deployment/ci-cd">
+    Automate testing and deployment
+  </Card>
+  <Card title="API Reference" icon="book" href="/api-reference/introduction">
+    Complete API documentation
+  </Card>
+</CardGroup>

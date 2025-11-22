@@ -1,0 +1,339 @@
+---
+title: "Signals Query API"
+description: "Query time-series metrics with spatial and temporal filters"
+---
+
+## Overview
+
+The **Signals Query API** retrieves time-series metrics (occupancy, queue_len, roof_condition, etc.) with flexible temporal and spatial filtering, rollup aggregation, and provenance tracking.
+
+## Endpoint
+
+```
+POST /v1/signals:query
+```
+
+## Request
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `site_id` | string | conditional | Site identifier (required if `polygon_id` not provided) |
+| `polygon_id` | string | conditional | Polygon identifier (required if `site_id` not provided) |
+| `metrics` | array[string] | yes | List of metrics to query (e.g., `["occupancy", "queue_len"]`) |
+| `time_from` | string (ISO 8601) | yes | Start of time range (inclusive) |
+| `time_to` | string (ISO 8601) | yes | End of time range (exclusive) |
+| `rollup` | enum | no | Aggregation interval: `5m`, `15m`, `1h`, `1d` (default: raw events) |
+| `method` | array[enum] | no | Filter by data source: `edge_cv`, `sat_change`, `aerial_oblique`, `mobile_panel`, `fused` |
+
+### Example Request
+
+```bash
+curl -X POST https://api.evoteli.com/v1/signals:query \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "site_id": "ATL-CTF-001",
+    "metrics": ["occupancy", "queue_len", "dwell_median"],
+    "time_from": "2025-11-05T00:00:00Z",
+    "time_to": "2025-11-06T00:00:00Z",
+    "rollup": "15m"
+  }'
+```
+
+## Response
+
+### Success Response (200 OK)
+
+```json
+{
+  "rows": [
+    {
+      "ts": "2025-11-05T11:00:00Z",
+      "metric": "occupancy",
+      "value": 18.4,
+      "unit": "count",
+      "method": "edge_cv",
+      "quality_score": 0.82,
+      "provenance": {
+        "sources": ["edge_cam:cam1"],
+        "imagery_license_id": null,
+        "model_version": "yolo11n-2025.10"
+      }
+    },
+    {
+      "ts": "2025-11-05T11:00:00Z",
+      "metric": "queue_len",
+      "value": 5.2,
+      "unit": "count",
+      "method": "edge_cv",
+      "quality_score": 0.79,
+      "provenance": {
+        "sources": ["edge_cam:cam2"],
+        "model_version": "yolo11n-2025.10"
+      }
+    },
+    {
+      "ts": "2025-11-05T11:00:00Z",
+      "metric": "dwell_median",
+      "value": 204.6,
+      "unit": "seconds",
+      "method": "edge_cv",
+      "quality_score": 0.77,
+      "provenance": {
+        "sources": ["edge_cam:cam1", "edge_cam:cam2"],
+        "model_version": "bytetrack-v1.2"
+      }
+    }
+  ],
+  "query_metadata": {
+    "total_rows": 3,
+    "query_time_ms": 142,
+    "from_cache": true
+  }
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `rows` | array | Array of metric data points |
+| `rows[].ts` | string | Timestamp (ISO 8601 UTC) |
+| `rows[].metric` | string | Metric name |
+| `rows[].value` | float | Metric value |
+| `rows[].unit` | string | Unit of measurement |
+| `rows[].method` | enum | Data source method |
+| `rows[].quality_score` | float | Quality/confidence score (0-1) |
+| `rows[].provenance` | object | Source attribution and model lineage |
+
+### Provenance Object
+
+| Field | Description |
+|-------|-------------|
+| `sources` | Array of source identifiers (e.g., camera IDs, satellite IDs) |
+| `imagery_license_id` | License ID for imagery (if applicable) |
+| `model_version` | Model version used for inference |
+
+## Rollup Behavior
+
+When `rollup` is specified, metrics are aggregated using appropriate functions:
+
+| Metric Type | Aggregation Function |
+|-------------|---------------------|
+| `occupancy`, `queue_len` | Mean |
+| `dwell_median`, `service_time_p50` | Median |
+| `turnover_rate` | Sum |
+| `event_score` | Max |
+
+**Example:** `rollup=15m` aggregates all raw events within each 15-minute window.
+
+## Available Metrics
+
+### Commercial (LotWatch)
+
+| Metric | Unit | Cadence | Method |
+|--------|------|---------|--------|
+| `occupancy` | count | 5-60s | edge_cv |
+| `queue_len` | count | 5-60s | edge_cv |
+| `dwell_median` | seconds | 15m rollup | edge_cv |
+| `turnover_rate` | vehicles/hour | 1h rollup | edge_cv |
+| `service_time_p50` | seconds | 15m rollup | edge_cv |
+| `service_time_p95` | seconds | 15m rollup | edge_cv |
+| `event_score` | 0-1 | daily | fused |
+
+### Residential (HomeScope)
+
+| Metric | Unit | Cadence | Method |
+|--------|------|---------|--------|
+| `roof_condition` | 0-1 | weekly | sat_change |
+| `roof_area` | sq ft | on-demand | aerial_oblique |
+| `solar_score` | 0-1 | on-demand | fused |
+| `insolation_annual` | kWh/m²/year | on-demand | earth_engine |
+| `driveway_condition` | 0-1 | weekly | sat_change |
+| `impervious_pct` | percentage | on-demand | earth_engine |
+
+### Construction (GeoPulse)
+
+| Metric | Unit | Cadence | Method |
+|--------|------|---------|--------|
+| `construction_delta` | percentage | weekly | sat_change |
+| `trailer_count` | count | weekly | sat_change |
+| `parking_lot_expansion` | sq ft | weekly | sat_change |
+
+## Filtering by Method
+
+To query only edge camera data (exclude satellite):
+
+```json
+{
+  "site_id": "ATL-CTF-001",
+  "metrics": ["occupancy"],
+  "time_from": "2025-11-05T00:00:00Z",
+  "time_to": "2025-11-06T00:00:00Z",
+  "method": ["edge_cv"]
+}
+```
+
+## Error Responses
+
+### Missing Required Parameters (400)
+
+```json
+{
+  "error": {
+    "code": "INVALID_REQUEST",
+    "message": "Missing required parameter: site_id or polygon_id"
+  }
+}
+```
+
+### No Data Found (200 with Empty Rows)
+
+```json
+{
+  "rows": [],
+  "query_metadata": {
+    "total_rows": 0,
+    "query_time_ms": 45,
+    "from_cache": false
+  }
+}
+```
+
+### Rate Limit Exceeded (429)
+
+```json
+{
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Rate limit exceeded. Retry after 60 seconds.",
+    "retry_after": 60
+  }
+}
+```
+
+## Performance Optimization
+
+### Use Rollups
+
+**Slow (millions of raw events):**
+```json
+{
+  "time_from": "2025-01-01T00:00:00Z",
+  "time_to": "2025-11-06T00:00:00Z",
+  "rollup": null  // Raw events
+}
+```
+
+**Fast (thousands of 15m aggregates):**
+```json
+{
+  "time_from": "2025-01-01T00:00:00Z",
+  "time_to": "2025-11-06T00:00:00Z",
+  "rollup": "15m"
+}
+```
+
+### Limit Time Range
+
+- Query < 7 days for raw events
+- Query < 90 days for 15m/1h rollups
+- Query < 365 days for 1d rollups
+
+### Batch Queries
+
+Retrieve multiple metrics in a single request:
+
+```json
+{
+  "site_id": "ATL-CTF-001",
+  "metrics": ["occupancy", "queue_len", "dwell_median"],  // Batched
+  "time_from": "2025-11-05T00:00:00Z",
+  "time_to": "2025-11-06T00:00:00Z"
+}
+```
+
+## SDK Examples
+
+### Python
+
+```python
+from geointel import Client
+
+client = Client(client_id="...", client_secret="...")
+
+response = client.signals.query(
+    site_id="ATL-CTF-001",
+    metrics=["occupancy", "queue_len"],
+    time_from="2025-11-05T00:00:00Z",
+    time_to="2025-11-06T00:00:00Z",
+    rollup="15m"
+)
+
+for row in response.rows:
+    print(f"{row.ts}: {row.metric}={row.value} ({row.quality_score:.2f})")
+```
+
+### Node.js
+
+```javascript
+const { Client } = require('@geointel/sdk');
+
+const client = new Client({
+  clientId: '...',
+  clientSecret: '...'
+});
+
+const response = await client.signals.query({
+  siteId: 'ATL-CTF-001',
+  metrics: ['occupancy', 'queue_len'],
+  timeFrom: '2025-11-05T00:00:00Z',
+  timeTo: '2025-11-06T00:00:00Z',
+  rollup: '15m'
+});
+
+response.rows.forEach(row => {
+  console.log(`${row.ts}: ${row.metric}=${row.value} (${row.qualityScore})`);
+});
+```
+
+### cURL (Bash Script)
+
+```bash
+#!/bin/bash
+TOKEN=$(curl -s -X POST https://auth.evoteli.com/oauth/token \
+  -d "grant_type=client_credentials" \
+  -d "client_id=$CLIENT_ID" \
+  -d "client_secret=$CLIENT_SECRET" \
+  | jq -r .access_token)
+
+curl -X POST https://api.evoteli.com/v1/signals:query \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "site_id": "ATL-CTF-001",
+    "metrics": ["occupancy"],
+    "time_from": "2025-11-05T00:00:00Z",
+    "time_to": "2025-11-06T00:00:00Z",
+    "rollup": "1h"
+  }' | jq .
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Create Alerts" icon="bell" href="/api-reference/alerts">
+    Set up threshold alerts on signal metrics
+  </Card>
+  <Card title="Provenance API" icon="fingerprint" href="/api-reference/provenance">
+    Fetch detailed provenance for metrics
+  </Card>
+  <Card title="LotWatch Guide" icon="car" href="/products/lotwatch">
+    Learn about commercial metrics
+  </Card>
+  <Card title="HomeScope Guide" icon="house" href="/products/homescope">
+    Learn about residential metrics
+  </Card>
+</CardGroup>

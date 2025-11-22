@@ -1,0 +1,646 @@
+---
+title: "Database Migrations"
+description: "ClickHouse and PostGIS schema initialization and migrations"
+---
+
+## Overview
+
+This page documents all database migrations for the Evoteli. Migrations are SQL scripts that create tables, indexes, materialized views, and initial data.
+
+## Migration Structure
+
+```
+migrations/
+├── clickhouse/
+│   ├── 001_create_signals_timeseries.sql
+│   ├── 002_create_rollup_views.sql
+│   ├── 003_create_ttl_policies.sql
+│   └── 004_create_distributed_tables.sql
+└── postgis/
+    ├── 001_enable_postgis.sql
+    ├── 002_create_sites_table.sql
+    ├── 003_create_polygons_table.sql
+    ├── 004_create_model_inferences.sql
+    ├── 005_create_audiences.sql
+    ├── 006_create_alerts.sql
+    └── 007_create_provenance_log.sql
+```
+
+## ClickHouse Migrations
+
+### 001_create_signals_timeseries.sql
+
+Primary time-series table for all metrics:
+
+```sql
+-- migrations/clickhouse/001_create_signals_timeseries.sql
+
+CREATE DATABASE IF NOT EXISTS geointel;
+
+USE geointel;
+
+-- Primary time-series table
+CREATE TABLE IF NOT EXISTS signals_timeseries (
+    site_id LowCardinality(String),
+    polygon_id Nullable(String),
+    ts DateTime64(3, 'UTC'),
+    metric LowCardinality(String),
+    value Float64,
+    unit LowCardinality(String),
+    method Enum8(
+        'edge_cv' = 1,
+        'sat_change' = 2,
+        'aerial_oblique' = 3,
+        'earth_engine' = 4,
+        'mobile_panel' = 5,
+        'fused' = 6
+    ),
+    quality_score Float32,
+    provenance String  -- JSON string
+) ENGINE = MergeTree()
+PARTITION BY toYYYYMM(ts)
+ORDER BY (site_id, metric, ts)
+SETTINGS index_granularity = 8192;
+
+-- Secondary index for polygon queries
+ALTER TABLE signals_timeseries ADD INDEX polygon_idx polygon_id TYPE minmax GRANULARITY 4;
+
+-- Comments
+ALTER TABLE signals_timeseries COMMENT COLUMN site_id 'Store/location identifier';
+ALTER TABLE signals_timeseries COMMENT COLUMN polygon_id 'Parcel/polygon identifier (nullable for site-level metrics)';
+ALTER TABLE signals_timeseries COMMENT COLUMN ts 'Timestamp in UTC with millisecond precision';
+ALTER TABLE signals_timeseries COMMENT COLUMN metric 'Metric name (e.g., occupancy, queue_len)';
+ALTER TABLE signals_timeseries COMMENT COLUMN value 'Metric value (Float64 for flexibility)';
+ALTER TABLE signals_timeseries COMMENT COLUMN unit 'Metric unit (e.g., count, percent, sqft)';
+ALTER TABLE signals_timeseries COMMENT COLUMN method 'Data collection method';
+ALTER TABLE signals_timeseries COMMENT COLUMN quality_score 'Quality score (0-1)';
+ALTER TABLE signals_timeseries COMMENT COLUMN provenance 'JSON provenance record';
+```
+
+### 002_create_rollup_views.sql
+
+Materialized views for rollups:
+
+```sql
+-- migrations/clickhouse/002_create_rollup_views.sql
+
+USE geointel;
+
+-- 5-minute rollup
+CREATE MATERIALIZED VIEW IF NOT EXISTS signals_5m_mv
+ENGINE = AggregatingMergeTree()
+PARTITION BY toYYYYMM(ts)
+ORDER BY (site_id, polygon_id, metric, ts)
+AS SELECT
+    site_id,
+    polygon_id,
+    toStartOfFiveMinutes(ts) AS ts,
+    metric,
+    unit,
+    avgState(value) AS value_avg,
+    quantileState(0.5)(value) AS value_median,
+    quantileState(0.95)(value) AS value_p95,
+    sumState(value) AS value_sum,
+    maxState(value) AS value_max,
+    minState(value) AS value_min,
+    countState() AS sample_count,
+    avgState(quality_score) AS quality_avg
+FROM signals_timeseries
+GROUP BY site_id, polygon_id, ts, metric, unit;
+
+-- 15-minute rollup
+CREATE MATERIALIZED VIEW IF NOT EXISTS signals_15m_mv
+ENGINE = AggregatingMergeTree()
+PARTITION BY toYYYYMM(ts)
+ORDER BY (site_id, polygon_id, metric, ts)
+AS SELECT
+    site_id,
+    polygon_id,
+    toStartOfFifteenMinutes(ts) AS ts,
+    metric,
+    unit,
+    avgState(value) AS value_avg,
+    quantileState(0.5)(value) AS value_median,
+    quantileState(0.95)(value) AS value_p95,
+    sumState(value) AS value_sum,
+    maxState(value) AS value_max,
+    minState(value) AS value_min,
+    countState() AS sample_count,
+    avgState(quality_score) AS quality_avg
+FROM signals_timeseries
+GROUP BY site_id, polygon_id, ts, metric, unit;
+
+-- 1-hour rollup
+CREATE MATERIALIZED VIEW IF NOT EXISTS signals_1h_mv
+ENGINE = AggregatingMergeTree()
+PARTITION BY toYYYYMM(ts)
+ORDER BY (site_id, polygon_id, metric, ts)
+AS SELECT
+    site_id,
+    polygon_id,
+    toStartOfHour(ts) AS ts,
+    metric,
+    unit,
+    avgState(value) AS value_avg,
+    quantileState(0.5)(value) AS value_median,
+    quantileState(0.95)(value) AS value_p95,
+    sumState(value) AS value_sum,
+    maxState(value) AS value_max,
+    minState(value) AS value_min,
+    countState() AS sample_count,
+    avgState(quality_score) AS quality_avg
+FROM signals_timeseries
+GROUP BY site_id, polygon_id, ts, metric, unit;
+
+-- 1-day rollup
+CREATE MATERIALIZED VIEW IF NOT EXISTS signals_1d_mv
+ENGINE = AggregatingMergeTree()
+PARTITION BY toYYYYMM(ts)
+ORDER BY (site_id, polygon_id, metric, ts)
+AS SELECT
+    site_id,
+    polygon_id,
+    toDate(ts) AS ts,
+    metric,
+    unit,
+    avgState(value) AS value_avg,
+    quantileState(0.5)(value) AS value_median,
+    quantileState(0.95)(value) AS value_p95,
+    sumState(value) AS value_sum,
+    maxState(value) AS value_max,
+    minState(value) AS value_min,
+    countState() AS sample_count,
+    avgState(quality_score) AS quality_avg
+FROM signals_timeseries
+GROUP BY site_id, polygon_id, ts, metric, unit;
+
+-- Query view for 5m rollups (finalize aggregates)
+CREATE VIEW IF NOT EXISTS signals_5m AS
+SELECT
+    site_id,
+    polygon_id,
+    ts,
+    metric,
+    unit,
+    avgMerge(value_avg) AS value_avg,
+    quantileMerge(0.5)(value_median) AS value_median,
+    quantileMerge(0.95)(value_p95) AS value_p95,
+    sumMerge(value_sum) AS value_sum,
+    maxMerge(value_max) AS value_max,
+    minMerge(value_min) AS value_min,
+    countMerge(sample_count) AS sample_count,
+    avgMerge(quality_avg) AS quality_avg
+FROM signals_5m_mv
+GROUP BY site_id, polygon_id, ts, metric, unit;
+
+-- Query view for 15m rollups
+CREATE VIEW IF NOT EXISTS signals_15m AS
+SELECT
+    site_id,
+    polygon_id,
+    ts,
+    metric,
+    unit,
+    avgMerge(value_avg) AS value_avg,
+    quantileMerge(0.5)(value_median) AS value_median,
+    quantileMerge(0.95)(value_p95) AS value_p95,
+    sumMerge(value_sum) AS value_sum,
+    maxMerge(value_max) AS value_max,
+    minMerge(value_min) AS value_min,
+    countMerge(sample_count) AS sample_count,
+    avgMerge(quality_avg) AS quality_avg
+FROM signals_15m_mv
+GROUP BY site_id, polygon_id, ts, metric, unit;
+
+-- Query view for 1h rollups
+CREATE VIEW IF NOT EXISTS signals_1h AS
+SELECT
+    site_id,
+    polygon_id,
+    ts,
+    metric,
+    unit,
+    avgMerge(value_avg) AS value_avg,
+    quantileMerge(0.5)(value_median) AS value_median,
+    quantileMerge(0.95)(value_p95) AS value_p95,
+    sumMerge(value_sum) AS value_sum,
+    maxMerge(value_max) AS value_max,
+    minMerge(value_min) AS value_min,
+    countMerge(sample_count) AS sample_count,
+    avgMerge(quality_avg) AS quality_avg
+FROM signals_1h_mv
+GROUP BY site_id, polygon_id, ts, metric, unit;
+
+-- Query view for 1d rollups
+CREATE VIEW IF NOT EXISTS signals_1d AS
+SELECT
+    site_id,
+    polygon_id,
+    ts,
+    metric,
+    unit,
+    avgMerge(value_avg) AS value_avg,
+    quantileMerge(0.5)(value_median) AS value_median,
+    quantileMerge(0.95)(value_p95) AS value_p95,
+    sumMerge(value_sum) AS value_sum,
+    maxMerge(value_max) AS value_max,
+    minMerge(value_min) AS value_min,
+    countMerge(sample_count) AS sample_count,
+    avgMerge(quality_avg) AS quality_avg
+FROM signals_1d_mv
+GROUP BY site_id, polygon_id, ts, metric, unit;
+```
+
+### 003_create_ttl_policies.sql
+
+TTL policies for automatic retention management:
+
+```sql
+-- migrations/clickhouse/003_create_ttl_policies.sql
+
+USE geointel;
+
+-- Raw signals: 90-day retention
+ALTER TABLE signals_timeseries MODIFY TTL ts + INTERVAL 90 DAY;
+
+-- 5m rollups: 180-day retention
+ALTER TABLE signals_5m_mv MODIFY TTL ts + INTERVAL 180 DAY;
+
+-- 15m rollups: 180-day retention
+ALTER TABLE signals_15m_mv MODIFY TTL ts + INTERVAL 180 DAY;
+
+-- 1h rollups: 365-day retention
+ALTER TABLE signals_1h_mv MODIFY TTL ts + INTERVAL 365 DAY;
+
+-- 1d rollups: 730-day (2 years) retention
+ALTER TABLE signals_1d_mv MODIFY TTL ts + INTERVAL 730 DAY;
+```
+
+## PostGIS Migrations
+
+### 001_enable_postgis.sql
+
+Enable PostGIS extensions:
+
+```sql
+-- migrations/postgis/001_enable_postgis.sql
+
+-- Enable PostGIS extension
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS postgis_topology;
+CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;
+CREATE EXTENSION IF NOT EXISTS postgis_tiger_geocoder;
+
+-- Verify PostGIS version
+SELECT PostGIS_Version();
+```
+
+### 002_create_sites_table.sql
+
+Sites/locations table:
+
+```sql
+-- migrations/postgis/002_create_sites_table.sql
+
+CREATE TABLE sites (
+    site_id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    brand VARCHAR(100),
+    polygon GEOMETRY(Polygon, 4326) NOT NULL,
+    address JSONB,
+    metadata JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Spatial index
+CREATE INDEX sites_geom_idx ON sites USING GIST (polygon);
+
+-- Brand index
+CREATE INDEX sites_brand_idx ON sites (brand);
+
+-- Update timestamp trigger
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_sites_updated_at
+BEFORE UPDATE ON sites
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Comments
+COMMENT ON TABLE sites IS 'Store/location master table';
+COMMENT ON COLUMN sites.site_id IS 'Unique site identifier (e.g., ATL-CTF-001)';
+COMMENT ON COLUMN sites.polygon IS 'Site boundary polygon (WGS84)';
+COMMENT ON COLUMN sites.address IS 'Structured address JSON';
+COMMENT ON COLUMN sites.metadata IS 'Additional metadata (cameras, sensors, etc.)';
+```
+
+### 003_create_polygons_table.sql
+
+Parcels/polygons table:
+
+```sql
+-- migrations/postgis/003_create_polygons_table.sql
+
+CREATE TABLE polygons (
+    polygon_id VARCHAR(50) PRIMARY KEY,
+    parcel_id VARCHAR(50),
+    geometry GEOMETRY(Polygon, 4326) NOT NULL,
+    area_sqft FLOAT,
+    property_type VARCHAR(50),
+    metadata JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Spatial index
+CREATE INDEX polygons_geom_idx ON polygons USING GIST (geometry);
+
+-- Parcel index
+CREATE INDEX polygons_parcel_idx ON polygons (parcel_id);
+
+-- Property type index
+CREATE INDEX polygons_property_type_idx ON polygons (property_type);
+
+-- Update timestamp trigger
+CREATE TRIGGER update_polygons_updated_at
+BEFORE UPDATE ON polygons
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Comments
+COMMENT ON TABLE polygons IS 'Parcel/lot polygons for HomeScope';
+COMMENT ON COLUMN polygons.polygon_id IS 'Unique polygon identifier';
+COMMENT ON COLUMN polygons.parcel_id IS 'County parcel identifier (APN)';
+COMMENT ON COLUMN polygons.geometry IS 'Polygon geometry (WGS84)';
+COMMENT ON COLUMN polygons.area_sqft IS 'Total parcel area in square feet';
+```
+
+### 004_create_model_inferences.sql
+
+Model inference results table:
+
+```sql
+-- migrations/postgis/004_create_model_inferences.sql
+
+CREATE TABLE model_inferences (
+    inference_id SERIAL PRIMARY KEY,
+    polygon_id VARCHAR(50) REFERENCES polygons(polygon_id),
+    model_name VARCHAR(100) NOT NULL,
+    model_version VARCHAR(50) NOT NULL,
+    inference_date TIMESTAMPTZ NOT NULL,
+    result JSONB NOT NULL,
+    artifact_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Polygon + date index (most recent first)
+CREATE INDEX model_inferences_polygon_date_idx
+ON model_inferences (polygon_id, inference_date DESC);
+
+-- Model name index
+CREATE INDEX model_inferences_model_idx ON model_inferences (model_name);
+
+-- Comments
+COMMENT ON TABLE model_inferences IS 'ML model inference results (segmentation masks, bboxes)';
+COMMENT ON COLUMN model_inferences.result IS 'JSON result (masks, bboxes, confidence scores)';
+COMMENT ON COLUMN model_inferences.artifact_url IS 'S3/GCS URL to full artifact (GeoTIFF, etc.)';
+```
+
+### 005_create_audiences.sql
+
+Audience export jobs table:
+
+```sql
+-- migrations/postgis/005_create_audiences.sql
+
+CREATE TABLE audiences (
+    job_id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    filters JSONB NOT NULL,
+    destination VARCHAR(50) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    estimated_count INT,
+    final_count INT,
+    download_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    completed_at TIMESTAMPTZ
+);
+
+-- Status index
+CREATE INDEX audiences_status_idx ON audiences (status);
+
+-- Created date index
+CREATE INDEX audiences_created_idx ON audiences (created_at DESC);
+
+-- Comments
+COMMENT ON TABLE audiences IS 'Audience export job tracking';
+COMMENT ON COLUMN audiences.filters IS 'JSON filter criteria (roof_age, solar_score, etc.)';
+COMMENT ON COLUMN audiences.destination IS 'Export destination (gads_customer_match, s3, etc.)';
+COMMENT ON COLUMN audiences.status IS 'Job status (pending, processing, completed, failed)';
+```
+
+### 006_create_alerts.sql
+
+Alert configurations table:
+
+```sql
+-- migrations/postgis/006_create_alerts.sql
+
+CREATE TABLE alerts (
+    alert_id VARCHAR(50) PRIMARY KEY,
+    channel VARCHAR(50) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    condition JSONB NOT NULL,
+    payload JSONB,
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    last_triggered TIMESTAMPTZ,
+    trigger_count INT DEFAULT 0
+);
+
+-- Status index
+CREATE INDEX alerts_status_idx ON alerts (status);
+
+-- Channel index
+CREATE INDEX alerts_channel_idx ON alerts (channel);
+
+-- Comments
+COMMENT ON TABLE alerts IS 'Alert configurations';
+COMMENT ON COLUMN alerts.condition IS 'JSON condition (threshold, anomaly, etc.)';
+COMMENT ON COLUMN alerts.payload IS 'JSON payload (webhook_url, email, etc.)';
+COMMENT ON COLUMN alerts.status IS 'Alert status (active, paused, deleted)';
+```
+
+### 007_create_provenance_log.sql
+
+Immutable provenance log:
+
+```sql
+-- migrations/postgis/007_create_provenance_log.sql
+
+CREATE TABLE provenance_log (
+    metric_id VARCHAR(50) PRIMARY KEY,
+    site_id VARCHAR(50),
+    polygon_id VARCHAR(50),
+    ts TIMESTAMPTZ NOT NULL,
+    metric VARCHAR(100) NOT NULL,
+    value FLOAT,
+    provenance JSONB NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Timestamp index (descending for recent queries)
+CREATE INDEX provenance_log_ts_idx ON provenance_log (ts DESC);
+
+-- Site index
+CREATE INDEX provenance_log_site_idx ON provenance_log (site_id);
+
+-- Comments
+COMMENT ON TABLE provenance_log IS 'Immutable provenance records (7-year retention)';
+COMMENT ON COLUMN provenance_log.provenance IS 'Full provenance JSON (sources, model, imagery license)';
+```
+
+## Running Migrations
+
+### ClickHouse
+
+```bash
+# Using clickhouse-client
+for file in migrations/clickhouse/*.sql; do
+    echo "Running $file..."
+    clickhouse-client --host localhost --port 9000 \
+        --user geointel --password "${CLICKHOUSE_PASSWORD}" \
+        --multiquery < "$file"
+done
+
+# Using Docker
+for file in migrations/clickhouse/*.sql; do
+    docker-compose exec clickhouse-01 clickhouse-client \
+        --user geointel --password "${CLICKHOUSE_PASSWORD}" \
+        --multiquery < "$file"
+done
+```
+
+### PostGIS
+
+```bash
+# Using psql
+for file in migrations/postgis/*.sql; do
+    echo "Running $file..."
+    psql -h localhost -p 5432 -U geointel -d geointel -f "$file"
+done
+
+# Using Docker
+for file in migrations/postgis/*.sql; do
+    docker-compose exec -T postgis psql -U geointel -d geointel < "$file"
+done
+```
+
+## Verification
+
+### ClickHouse
+
+```sql
+-- List tables
+SHOW TABLES FROM geointel;
+
+-- Check signals_timeseries schema
+DESCRIBE TABLE geointel.signals_timeseries;
+
+-- Check materialized views
+SELECT
+    database,
+    name,
+    engine,
+    total_rows
+FROM system.tables
+WHERE database = 'geointel' AND engine LIKE '%MaterializedView%';
+
+-- Check TTL settings
+SELECT
+    table,
+    create_table_query
+FROM system.tables
+WHERE database = 'geointel' AND table = 'signals_timeseries';
+```
+
+### PostGIS
+
+```sql
+-- List tables
+\dt
+
+-- Check sites table
+\d sites
+
+-- Verify PostGIS version
+SELECT PostGIS_Version();
+
+-- Count tables
+SELECT COUNT(*) FROM information_schema.tables
+WHERE table_schema = 'public';
+
+-- Check spatial indexes
+SELECT
+    indexname,
+    indexdef
+FROM pg_indexes
+WHERE indexdef LIKE '%GIST%';
+```
+
+## Rollback
+
+### ClickHouse
+
+```sql
+-- Drop all tables and views
+DROP VIEW IF EXISTS geointel.signals_1d;
+DROP VIEW IF EXISTS geointel.signals_1h;
+DROP VIEW IF EXISTS geointel.signals_15m;
+DROP VIEW IF EXISTS geointel.signals_5m;
+DROP TABLE IF EXISTS geointel.signals_1d_mv;
+DROP TABLE IF EXISTS geointel.signals_1h_mv;
+DROP TABLE IF EXISTS geointel.signals_15m_mv;
+DROP TABLE IF EXISTS geointel.signals_5m_mv;
+DROP TABLE IF EXISTS geointel.signals_timeseries;
+DROP DATABASE IF EXISTS geointel;
+```
+
+### PostGIS
+
+```sql
+-- Drop all tables
+DROP TABLE IF EXISTS provenance_log CASCADE;
+DROP TABLE IF EXISTS alerts CASCADE;
+DROP TABLE IF EXISTS audiences CASCADE;
+DROP TABLE IF EXISTS model_inferences CASCADE;
+DROP TABLE IF EXISTS polygons CASCADE;
+DROP TABLE IF EXISTS sites CASCADE;
+
+-- Drop function
+DROP FUNCTION IF EXISTS update_updated_at_column CASCADE;
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Docker Compose" icon="docker" href="/deployment/docker-compose">
+    Start local development environment
+  </Card>
+  <Card title="Data Model" icon="database" href="/concepts/data-model">
+    Understand the schema design
+  </Card>
+  <Card title="API Gateway" icon="code" href="/implementation/serving">
+    Build the FastAPI application
+  </Card>
+  <Card title="Seed Data" icon="seedling" href="/deployment/seed-data">
+    Load test data for development
+  </Card>
+</CardGroup>

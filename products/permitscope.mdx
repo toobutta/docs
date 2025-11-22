@@ -1,0 +1,38 @@
+---
+title: "PermitScope"
+description: "Early-warning system for competitor openings"
+---
+
+## Overview
+
+**PermitScope** monitors building permits, zoning changes, hiring signals, and construction activity to predict competitor openings 90-180 days in advance.
+
+## Data Sources
+
+- **Building Permits:** Municipal permit databases
+- **Zoning Changes:** Rezoning applications for commercial use
+- **Hiring Signals:** Job postings for "opening crew" or "new store"
+- **Construction Activity:** GeoPulse satellite detections
+
+## Weekly Digest
+
+```json
+{
+  "week_of": "2025-11-03",
+  "new_permits": 8,
+  "high_confidence_openings": [
+    {
+      "location": "123 Main St, Atlanta, GA",
+      "brand": "Competitor X (estimated)",
+      "permit_date": "2025-10-12",
+      "construction_start": "2025-10-28",
+      "estimated_opening": "2026-Q1",
+      "confidence": 0.84
+    }
+  ]
+}
+```
+
+<Card title="Setup Guide" icon="file-certificate" href="/implementation/permitscope-setup">
+  Coming Soon
+</Card>

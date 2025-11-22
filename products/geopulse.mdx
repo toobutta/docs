@@ -1,0 +1,44 @@
+---
+title: "GeoPulse"
+description: "Construction and change detection from satellite and aerial imagery"
+---
+
+## Overview
+
+**GeoPulse** monitors construction activity, parking lot changes, building footprint updates, and site development using weekly satellite/aerial imagery analysis.
+
+## Key Metrics
+
+| Metric | Description |
+|--------|-------------|
+| `construction_delta` | % change in construction area |
+| `building_footprint_change` | New/demolished structures |
+| `parking_lot_expansion` | Added parking spaces |
+| `trailer_count` | Construction trailers detected |
+
+## Use Cases
+
+- **Competitor Openings:** Detect pad/lot prep 90-180 days before opening
+- **Store Closures:** Identify demolished or abandoned locations
+- **Parking Expansion:** Track lot expansions for capacity planning
+
+## Weekly Digest Example
+
+```json
+{
+  "week_of": "2025-11-03",
+  "changes_detected": 23,
+  "highlights": [
+    {
+      "site_id": "Competitor-ATL-NEW",
+      "construction_delta": 0.67,
+      "status": "pad_prep_complete",
+      "estimated_opening": "2026-Q1"
+    }
+  ]
+}
+```
+
+<Card title="Learn More" icon="satellite" href="/implementation/batch-processing">
+  Explore satellite processing pipeline
+</Card>

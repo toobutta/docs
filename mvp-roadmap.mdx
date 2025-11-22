@@ -1,0 +1,341 @@
+---
+title: "MVP Roadmap (0-90 Days)"
+description: "Phase 0 implementation plan for the Evoteli"
+---
+
+## Vision
+
+Build the **Minimum Viable Product (MVP)** in 90 days to validate:
+1. **LotWatch** for QSR drive-thru queue management (10-site pilot)
+2. **HomeScope RoofIQ + SolarFit** for residential contractor lead generation
+3. **Signal API** for programmatic access
+4. **Privacy-by-design** compliance and quality assurance
+
+## Success Criteria (90-Day Exit)
+
+<CardGroup cols={2}>
+  <Card title="10 Pilot Sites Live">
+    - 10 QSR sites with camera feeds ingesting
+    - <10s lag from frame to metric
+    - ±8% accuracy vs. manual counts
+  </Card>
+  <Card title="RoofIQ Accuracy">
+    - Geometry error <5% (n≥50 parcels)
+    - SolarFit payback within ±15%
+    - Weekly satellite refreshes
+  </Card>
+  <Card title="Alert Reliability">
+    - False positive rate <10%
+    - Slack/Teams integration stable
+    - 100% provenance coverage
+  </Card>
+  <Card title="Quality Threshold">
+    - Average quality_score ≥0.7
+    - 99% uptime (MVP target)
+    - No critical security findings
+  </Card>
+</CardGroup>
+
+## Phase Breakdown
+
+### Weeks 0-4: Foundation
+
+**Objective:** Core infrastructure and edge processing v1
+
+<Steps>
+  <Step title="Week 1: Infrastructure Setup">
+    **Tasks:**
+    - Deploy ClickHouse cluster (3 nodes, replication factor 2)
+    - Deploy PostGIS (RDS/Cloud SQL with PostGIS extension)
+    - Set up S3/GCS buckets for imagery tiles
+    - Configure VPC, security groups, IAM roles
+
+    **Deliverables:**
+    - Infrastructure as Code (Terraform/Pulumi)
+    - CI/CD pipeline (GitHub Actions or GitLab CI)
+  </Step>
+
+  <Step title="Week 2: Edge Processing v1">
+    **Tasks:**
+    - Flash Jetson devices with YOLO11n model
+    - Implement redaction pipeline (face/plate blur)
+    - Set up MQTT broker (Eclipse Mosquitto)
+    - Test 1-camera setup with live feed
+
+    **Deliverables:**
+    - Edge device image (Balena/Docker)
+    - Redaction accuracy >95%
+    - MQTT publish latency <1s
+  </Step>
+
+  <Step title="Week 3: Stream Processing v1">
+    **Tasks:**
+    - Deploy Kafka cluster (3 brokers)
+    - Implement Apache Beam pipeline (DataflowRunner or FlinkRunner)
+    - Write ClickHouse ingestion logic
+    - Create 15m/1h rollup materialized views
+
+    **Deliverables:**
+    - End-to-end lag <10s (verified with test data)
+    - ClickHouse schema with partitioning
+  </Step>
+
+  <Step title="Week 4: Signal API v1">
+    **Tasks:**
+    - Implement FastAPI gateway (signals:query endpoint)
+    - Add OAuth 2.0 authentication (client credentials flow)
+    - Deploy Redis cache (query result caching)
+    - Write API integration tests
+
+    **Deliverables:**
+    - API p95 latency <1.5s (cold, without cache)
+    - OpenAPI spec published
+  </Step>
+</Steps>
+
+### Weeks 5-8: Products & Pilots
+
+**Objective:** LotWatch and RoofIQ MVP with 3-site pilot
+
+<Steps>
+  <Step title="Week 5: LotWatch Metrics">
+    **Tasks:**
+    - Implement occupancy, queue_len, dwell_median metrics
+    - Deploy to 3 pilot sites (1 camera each)
+    - Run accuracy validation (manual counts vs. automated)
+
+    **Deliverables:**
+    - Accuracy: ±8% on occupancy (validated over 48 hours)
+    - Dashboard: Grafana panel with real-time occupancy
+  </Step>
+
+  <Step title="Week 6: RoofIQ v1">
+    **Tasks:**
+    - Integrate Planet/Maxar satellite API (licensed imagery)
+    - Implement SAM-based roof segmentation
+    - Deploy batch job for 50 test parcels
+    - Validate geometry (roof_area, roof_slope)
+
+    **Deliverables:**
+    - Geometry error <5% vs. ground truth (n=50)
+    - Batch processing: <30s per parcel
+  </Step>
+
+  <Step title="Week 7: SolarFit v1">
+    **Tasks:**
+    - Integrate Google Earth Engine (insolation layer)
+    - Implement solar_score calculation (insolation + shade + geometry)
+    - Generate payback estimates (with utility rate assumptions)
+
+    **Deliverables:**
+    - SolarFit payback within ±15% of baseline calculators
+    - Earth Engine task latency <30s
+  </Step>
+
+  <Step title="Week 8: Alerts & Provenance">
+    **Tasks:**
+    - Implement alerts.create endpoint (threshold alerts only)
+    - Add Slack webhook integration
+    - Implement provenance logging (provenance_log table)
+
+    **Deliverables:**
+    - 3 test alerts firing successfully
+    - 100% of metrics have provenance records
+  </Step>
+</Steps>
+
+### Weeks 9-12: Scale & Polish
+
+**Objective:** Expand to 10 sites, add dashboards, quality assurance
+
+<Steps>
+  <Step title="Week 9: Scale to 10 Sites">
+    **Tasks:**
+    - Deploy 7 additional edge devices
+    - Configure multi-camera setups (2-4 cameras per site)
+    - Monitor lag and quality across all sites
+
+    **Deliverables:**
+    - 10 sites live with <10s lag
+    - No OOM errors or crashes over 7-day stress test
+  </Step>
+
+  <Step title="Week 10: Dashboards & UX">
+    **Tasks:**
+    - Build Grafana dashboards (LotWatch Overview, Quality Monitoring)
+    - Create Superset dashboard for RoofIQ/SolarFit
+    - Implement audiences.export endpoint (CSV to S3 only)
+
+    **Deliverables:**
+    - 2 operational dashboards live
+    - 1 test audience export (100 parcels)
+  </Step>
+
+  <Step title="Week 11: Quality Assurance">
+    **Tasks:**
+    - Implement Great Expectations data validation
+    - Set up Evidently model drift monitoring
+    - Run quality audit across all sites
+
+    **Deliverables:**
+    - Average quality_score ≥0.7 across all metrics
+    - Quality flags documented for <0.7 scores
+  </Step>
+
+  <Step title="Week 12: Documentation & Handoff">
+    **Tasks:**
+    - Finalize API documentation
+    - Write deployment runbooks
+    - Conduct pilot customer training session
+    - Security audit (OWASP Top 10 scan)
+
+    **Deliverables:**
+    - API docs published
+    - No critical security findings
+    - 2 pilot customers trained
+  </Step>
+</Steps>
+
+## Technology Stack
+
+### Edge Layer
+- **Hardware:** NVIDIA Jetson Orin Nano (10 devices)
+- **Detection:** YOLO11n (MMDetection)
+- **Tracking:** ByteTrack (MIT license)
+- **Redaction:** OpenCV + InsightFace
+- **Transport:** MQTT (Eclipse Mosquitto)
+
+### Stream Layer
+- **Messaging:** Apache Kafka (3 brokers, RF=2)
+- **Processing:** Apache Beam (Dataflow or Flink)
+- **Ingestion:** GStreamer (camera RTSP)
+
+### Batch Layer
+- **Orchestration:** Dagster (workflow scheduler)
+- **Change Detection:** Raster-Vision + ChangeFormer
+- **Earth Engine:** Google Earth Engine Python API
+
+### Storage
+- **Time-Series:** ClickHouse (3 nodes, 90-day retention)
+- **Spatial:** PostGIS (PostgreSQL 15 + PostGIS 3.3)
+- **Object Storage:** S3/GCS (30-day lifecycle on tiles)
+
+### Serving
+- **API Gateway:** FastAPI (Python 3.11, async)
+- **Cache:** Redis (5-15 min TTL on query results)
+- **Auth:** OAuth 2.0 via Keycloak or Auth0
+
+### Observability
+- **Metrics:** Prometheus + Grafana
+- **Tracing:** OpenTelemetry → Jaeger
+- **Logging:** Fluentd → Elasticsearch
+- **Data Quality:** Great Expectations + Evidently
+
+## Budget Estimate (MVP)
+
+| Category | Cost (3 months) |
+|----------|-----------------|
+| Edge Devices (10x Jetson Orin Nano @ $500) | $5,000 |
+| Cloud Infrastructure (Compute, Storage, Network) | $8,000 |
+| Satellite Imagery License (Planet/Maxar) | $3,000 |
+| Earth Engine Commercial License | $1,500 |
+| Development Tools & Services (Auth0, Monitoring) | $1,500 |
+| **Total** | **$19,000** |
+
+## Risks & Mitigations
+
+<AccordionGroup>
+  <Accordion title="Risk: Satellite imagery license delays">
+    **Mitigation:** Start with Planet free tier (5k km²/month) or use public Sentinel-2 (lower resolution).
+  </Accordion>
+
+  <Accordion title="Risk: Edge device supply chain (Jetson availability)">
+    **Mitigation:** Order devices in Week 0; fallback to Google Coral or CPU-based (slower FPS).
+  </Accordion>
+
+  <Accordion title="Risk: Model accuracy below target">
+    **Mitigation:** Use pre-trained COCO weights; fine-tune on pilot site data in Week 6-7.
+  </Accordion>
+
+  <Accordion title="Risk: ClickHouse performance issues at scale">
+    **Mitigation:** Start with 3-node cluster; use monthly partitioning and TTL; pre-aggregate 15m/1h rollups.
+  </Accordion>
+
+  <Accordion title="Risk: Privacy compliance (redaction failures)">
+    **Mitigation:** Test redaction pipeline with 1000+ sample frames; achieve >95% blur accuracy before pilot.
+  </Accordion>
+</AccordionGroup>
+
+## Post-MVP (Weeks 13-24)
+
+### Phase 1 Extensions (90-180 Days)
+
+1. **Drive-Thru Lane Detection** (service_time_p50/p95)
+2. **Construction GeoPulse** (weekly satellite change detection)
+3. **StormShield Triage** (post-storm damage assessment)
+4. **Audience Export to Google Ads/DV360** (Customer Match integration)
+5. **Anomaly Alerts** (in addition to threshold alerts)
+
+### Phase 2 (180-360 Days)
+
+1. **TradeZone AI** (cannibalization modeling)
+2. **PermitScope** (permit scraping + construction signals)
+3. **SurgeRadar** (event/weather demand forecasting)
+4. **OOH Proof** (billboard impression verification)
+5. **EV/Fuel Forecaster** (charger utilization)
+
+## Team Requirements (MVP)
+
+| Role | FTE | Responsibilities |
+|------|-----|------------------|
+| Platform Engineer | 1.0 | Infrastructure, Kafka, ClickHouse, deployment |
+| ML Engineer | 1.0 | Edge CV, model training, batch processing |
+| Backend Engineer | 1.0 | FastAPI, Signal API, OAuth, Redis |
+| Frontend Engineer | 0.5 | Dashboards (Grafana/Superset customization) |
+| DevOps/SRE | 0.5 | CI/CD, monitoring, observability |
+| Product/PM | 0.5 | Pilot coordination, requirements, docs |
+| **Total** | 4.5 FTE | |
+
+## Acceptance Criteria
+
+**Go/No-Go Decision at Day 90:**
+
+<Steps>
+  <Step title="Technical">
+    - ✅ 10 sites ingesting with <10s lag
+    - ✅ Occupancy accuracy ±8%
+    - ✅ RoofIQ geometry error <5%
+    - ✅ API p95 <1.5s (cold), <800ms (cached)
+    - ✅ Quality_score avg ≥0.7
+  </Step>
+
+  <Step title="Operational">
+    - ✅ 99% uptime over last 2 weeks
+    - ✅ Alerts firing with <10% false positive rate
+    - ✅ Zero critical security findings
+    - ✅ Provenance on 100% of metrics
+  </Step>
+
+  <Step title="Business">
+    - ✅ 2 pilot customers trained and using API
+    - ✅ 1 documented case study (queue management or solar leads)
+    - ✅ Pricing model validated ($2k-$5k/mo Starter tier)
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture Guide" icon="diagram-project" href="/architecture">
+    Review the technical architecture
+  </Card>
+  <Card title="Edge Processing" icon="microchip" href="/implementation/edge-processing">
+    Deep dive into edge device setup
+  </Card>
+  <Card title="Stream Processing" icon="water" href="/implementation/stream-processing">
+    Learn about Kafka and Beam pipelines
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Explore the Signal API
+  </Card>
+</CardGroup>

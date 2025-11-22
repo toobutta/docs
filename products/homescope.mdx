@@ -1,0 +1,366 @@
+---
+title: "HomeScope"
+description: "Parcel-level property intelligence for residential contractors and insurers"
+---
+
+## Overview
+
+**HomeScope** analyzes aerial and satellite imagery to extract parcel-level property attributes: roof geometry and condition, solar suitability, driveway materials, impervious surface percentages, and storm resilience. Ideal for residential contractors (roofing, solar, paving), insurers, and municipal compliance.
+
+## Product Suite
+
+<CardGroup cols={2}>
+  <Card title="RoofIQ" icon="house-chimney">
+    Roof geometry, condition, age estimation, and material classification
+  </Card>
+  <Card title="SolarFit" icon="solar-panel">
+    Solar suitability score, insolation (kWh/m²/year), shading analysis, payback estimates
+  </Card>
+  <Card title="DrivewayPro" icon="road">
+    Driveway material (asphalt/concrete/gravel), condition score, area measurement
+  </Card>
+  <Card title="YardVision" icon="tree">
+    Vegetation coverage, shade index, defensible space (wildfire risk)
+  </Card>
+  <Card title="StormShield" icon="cloud-bolt">
+    Post-storm damage triage, roof/structure condition delta, prioritization scoring
+  </Card>
+</CardGroup>
+
+## Key Metrics
+
+### RoofIQ
+
+| Metric | Unit | Method | Cadence |
+|--------|------|--------|---------|
+| `roof_area` | sq ft | aerial_oblique | on-demand |
+| `roof_slope` | degrees | aerial_oblique | on-demand |
+| `roof_condition` | 0-1 score | sat_change | weekly |
+| `roof_age_band` | years (5-10, 10-15, 15+) | fused | monthly |
+| `roof_material` | enum (asphalt, metal, tile, etc.) | aerial_oblique | on-demand |
+| `south_facing_area` | sq ft | aerial_oblique | on-demand |
+
+### SolarFit
+
+| Metric | Unit | Method | Cadence |
+|--------|------|--------|---------|
+| `solar_score` | 0-1 | fused | on-demand |
+| `insolation_annual` | kWh/m²/year | earth_engine | on-demand |
+| `shade_index` | 0-1 (0=full sun, 1=full shade) | earth_engine | on-demand |
+| `payback_estimate` | years | fused | on-demand |
+| `utility_rebate_eligible` | boolean | external | on-demand |
+
+### DrivewayPro
+
+| Metric | Unit | Method | Cadence |
+|--------|------|--------|---------|
+| `driveway_area` | sq ft | aerial_oblique | on-demand |
+| `driveway_material` | enum (asphalt, concrete, gravel, paver) | aerial_oblique | on-demand |
+| `driveway_condition` | 0-1 score | sat_change | weekly |
+| `crack_density` | cracks/100 sq ft | aerial_oblique | on-demand |
+
+### StormShield
+
+| Metric | Unit | Method | Cadence |
+|--------|------|--------|---------|
+| `storm_impact_score` | 0-1 | fused | event-driven |
+| `roof_condition_delta` | percentage change | sat_change | post-storm |
+| `debris_detected` | boolean | sat_change | post-storm |
+| `triage_priority` | 1-5 (1=urgent) | fused | post-storm |
+
+## Use Cases
+
+### 1. Solar Lead Generation
+
+**Objective:** Identify qualified solar prospects for targeted campaigns.
+
+**Filters:**
+```
+south_facing_area > 300 sq ft
+AND roof_age_band >= 12 years
+AND shade_index < 0.3
+AND utility_rebate_eligible = true
+```
+
+**Output:**
+- Hashed audience export for Google Ads Customer Match
+- CSV with parcel IDs, addresses (if permitted), solar_score
+- Estimated campaign reach: 5,000 - 15,000 households
+
+**ROI:**
+- Marketing CAC improvement: +20-35%
+- Conversion rate lift: +15-25% (vs. untargeted)
+
+[See audience export API →](/api-reference/audiences)
+
+### 2. Roof Replacement Targeting
+
+**Objective:** Find homes likely needing roof replacement in next 1-2 years.
+
+**Filters:**
+```
+roof_condition < 0.6
+AND roof_age_band >= 15 years
+AND roof_area > 1500 sq ft
+```
+
+**Enrichment:**
+- Estimate: material cost (based on area + material type)
+- Estimated revenue: $8k - $25k per job
+- Lead quality score: 0-1 (higher = better)
+
+**Delivery:**
+- Direct mail with personalized roof assessment
+- Digital retargeting via hashed audiences
+
+### 3. Post-Storm Triage (Insurance)
+
+**Objective:** Route adjusters and contractors to likely-loss properties within 24-48 hours.
+
+**Workflow:**
+1. Ingest NOAA/NWS storm footprint (hail, wind, tornado)
+2. Run `StormShield` batch job on affected parcels
+3. Compute `storm_impact_score` and `triage_priority`
+4. Export top 500 parcels sorted by priority
+
+**Alert Example:**
+```json
+{
+  "type": "storm_triage",
+  "event_id": "NOAA-TX-2025-11-05",
+  "affected_parcels": 1247,
+  "high_priority": 89,
+  "recommendations": [
+    {
+      "parcel_id": "TX-441-12345",
+      "triage_priority": 1,
+      "storm_impact_score": 0.87,
+      "roof_condition_delta": -0.34,
+      "debris_detected": true
+    }
+  ]
+}
+```
+
+**Impact:**
+- Reduce adjuster dispatch time by 40-60%
+- Improve customer satisfaction (faster response)
+- Minimize fraudulent claims (pre-storm baseline)
+
+### 4. Stormwater Compliance (Municipal)
+
+**Objective:** Identify properties exceeding impervious surface limits; generate compliance letters.
+
+**Filters:**
+```
+impervious_pct > 70
+AND parcel_type = 'residential'
+```
+
+**Output:**
+- Notice letters with impervious % calculation
+- Credit eligibility for rain garden installation
+- Compliance deadline (90 days)
+
+**Metric:**
+```json
+{
+  "parcel_id": "PARCEL-441",
+  "impervious_pct": 72.4,
+  "roof_area": 2100,
+  "driveway_area": 850,
+  "action": "Eligible for fee credit with rain garden (200 sq ft min)",
+  "quality_score": 0.76
+}
+```
+
+## Technical Implementation
+
+### Data Sources
+
+**Aerial Imagery:**
+- **Licensed providers:** Planet (daily), Maxar (sub-meter), Nearmap (oblique)
+- **Cadence:** Weekly to monthly (depending on license)
+- **Resolution:** 30-50 cm/pixel (sufficient for roof/driveway segmentation)
+
+**Earth Engine:**
+- **Insolation:** NASA/NREL solar radiation layers
+- **NDVI:** Sentinel-2 (vegetation/shade)
+- **DEM:** SRTM 30m (slope, aspect)
+
+**Parcel Data:**
+- Municipal parcel shapefiles (polygon geometries)
+- Property tax records (roof age, structure size)
+
+### Model Pipeline
+
+**1. Roof Segmentation:**
+- **Model:** SAM (Segment Anything) or U-Net
+- **Input:** RGB aerial imagery (4-band with NIR optional)
+- **Output:** Roof polygon, area, slope, aspect
+
+**2. Condition Scoring:**
+- **Model:** ChangeFormer (bi-temporal change detection)
+- **Input:** Current image vs. baseline (1-2 years prior)
+- **Output:** `roof_condition` score (0=poor, 1=excellent)
+
+**3. Solar Analysis:**
+- **Model:** Earth Engine insolation query + shading mask
+- **Input:** Roof polygon, DEM, tree canopy (NDVI)
+- **Output:** `insolation_annual`, `shade_index`, `solar_score`
+
+**4. Driveway Detection:**
+- **Model:** Semantic segmentation (asphalt/concrete classes)
+- **Input:** Aerial image cropped to parcel bounds
+- **Output:** Driveway polygon, material, condition
+
+### Batch Job Orchestration (Dagster)
+
+**Weekly Schedule:**
+```python
+@job
+def homescope_weekly_batch():
+    parcels = fetch_target_parcels()  # e.g., 10k parcels
+    imagery = download_aerial_tiles(parcels)
+    roof_results = run_roof_segmentation(imagery)
+    solar_results = run_earth_engine_insolation(roof_results)
+    condition_results = run_change_detection(imagery)
+    store_results_to_postgres(roof_results, solar_results, condition_results)
+```
+
+**On-Demand API:**
+```bash
+POST /homescope.analyze
+{
+  "parcel_id": "PARCEL-441",
+  "products": ["RoofIQ", "SolarFit"],
+  "imagery_date": "2025-11-01"
+}
+```
+
+## API Examples
+
+### RoofIQ Analysis
+
+```bash
+curl -X POST https://api.evoteli.com/homescope.analyze \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "parcel_id": "PARCEL-441",
+    "products": ["RoofIQ"]
+  }'
+```
+
+**Response:**
+```json
+{
+  "parcel_id": "PARCEL-441",
+  "roofiq": {
+    "roof_area": 2140.5,
+    "roof_slope": 18.3,
+    "roof_condition": 0.68,
+    "roof_age_band": "15-20",
+    "roof_material": "asphalt_shingle",
+    "south_facing_area": 680.2,
+    "quality_score": 0.79,
+    "provenance": {
+      "imagery_date": "2025-10-15",
+      "imagery_provider": "Planet",
+      "model_version": "sam-roof-v2.1"
+    }
+  }
+}
+```
+
+### Audience Export (Solar Leads)
+
+```bash
+curl -X POST https://api.evoteli.com/audiences.export \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "name": "Solar Qualified Leads Nov 2025",
+    "filters": {
+      "south_facing_area_gt": 300,
+      "roof_age_band_gte": 12,
+      "shade_index_lt": 0.3,
+      "utility_rebate_eligible": true
+    },
+    "destination": "gads_customer_match"
+  }'
+```
+
+**Response:**
+```json
+{
+  "job_id": "aud-export-20251106-001",
+  "estimated_count": 8247,
+  "status": "processing",
+  "eta_minutes": 15
+}
+```
+
+## Pricing
+
+**RoofIQ Analysis:**
+- **On-demand:** $0.50 - $1.50 per parcel
+- **Batch (10k+ parcels):** $0.25 - $0.75 per parcel
+
+**SolarFit Analysis:**
+- **On-demand:** $1.00 - $2.00 per parcel (includes Earth Engine)
+- **Batch:** $0.50 - $1.25 per parcel
+
+**DrivewayPro + YardVision:**
+- **Bundled:** $0.75 - $1.50 per parcel
+
+**StormShield (Event-Driven):**
+- **Per-event pricing:** $2,000 - $10,000 (covers 5k-20k parcels)
+- **Subscription:** $500/month (up to 2 events/month)
+
+## Compliance
+
+**Privacy:**
+- No street-view or close-up person imagery
+- Aerial/satellite only (>100 ft elevation)
+- Aggregated reports (no individual addresses unless permitted)
+
+**Licensing:**
+- Licensed imagery from Planet/Maxar/Nearmap
+- Earth Engine: Comply with Google terms (non-commercial research or licensed commercial use)
+
+**Retention:**
+- Imagery tiles: 30-90 days
+- Metric results: 365 days
+- Provenance logs: 7 years
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Explore SolarFit"
+    icon="solar-panel"
+    href="/products/solarfit"
+  >
+    Deep dive into solar suitability scoring and insolation.
+  </Card>
+  <Card
+    title="Batch Processing"
+    icon="satellite"
+    href="/implementation/batch-processing"
+  >
+    Learn how satellite imagery is processed at scale.
+  </Card>
+  <Card
+    title="Audience Export API"
+    icon="users"
+    href="/api-reference/audiences"
+  >
+    Export qualified leads to ad platforms.
+  </Card>
+  <Card
+    title="Earth Engine Tasks"
+    icon="earth-americas"
+    href="/api-reference/earth-engine"
+  >
+    Trigger insolation, NDVI, and DEM analyses.
+  </Card>
+</CardGroup>

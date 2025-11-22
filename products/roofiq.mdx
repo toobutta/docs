@@ -1,0 +1,27 @@
+---
+title: "RoofIQ"
+description: "Roof geometry, condition, and age estimation from aerial imagery"
+---
+
+## Overview
+
+**RoofIQ** is a core component of [HomeScope](/products/homescope) that analyzes roof geometry, condition, material, and age from aerial/satellite imagery.
+
+## Metrics
+
+| Metric | Description | Unit |
+|--------|-------------|------|
+| `roof_area` | Total roof surface area | sq ft |
+| `roof_slope` | Average pitch | degrees |
+| `roof_condition` | Condition score | 0-1 |
+| `roof_age_band` | Estimated age bracket | 5-10, 10-15, 15+ years |
+| `roof_material` | Material type | asphalt, metal, tile, etc. |
+| `south_facing_area` | South-facing roof area (solar) | sq ft |
+
+## Use Cases
+
+- **Roof Replacement Leads:** Target homes with `roof_condition < 0.6` and `roof_age_band >= 15 years`
+- **Insurance Underwriting:** Prefill roof attributes for quote acceleration
+- **Solar Pre-Qualification:** Identify `south_facing_area > 300 sq ft` for solar campaigns
+
+See [HomeScope documentation](/products/homescope) for full details and API examples.

@@ -1,0 +1,51 @@
+---
+title: "StormShield"
+description: "Post-storm damage triage and contractor routing"
+---
+
+## Overview
+
+**StormShield** (part of [HomeScope](/products/homescope)) provides rapid post-storm damage assessment by comparing pre-storm baseline imagery with post-event satellite/aerial data. Prioritizes parcels for adjuster and contractor dispatch.
+
+## Metrics
+
+| Metric | Description |
+|--------|-------------|
+| `storm_impact_score` | 0-1 damage likelihood |
+| `roof_condition_delta` | Change in roof condition |
+| `debris_detected` | Boolean (debris presence) |
+| `triage_priority` | 1-5 urgency (1=urgent) |
+
+## Workflow
+
+1. **Pre-Storm Baseline:** Continuous monitoring establishes `roof_condition` baseline
+2. **Storm Event:** NOAA/NWS footprint triggers analysis
+3. **Post-Storm Imagery:** Acquire satellite imagery 24-48 hours after event
+4. **Change Detection:** Compute `roof_condition_delta` and `debris_detected`
+5. **Triage Export:** Generate prioritized parcel list for dispatch
+
+## Example Output
+
+```json
+{
+  "event_id": "NOAA-TX-2025-11-05",
+  "affected_parcels": 1247,
+  "high_priority_count": 89,
+  "top_priority": [
+    {
+      "parcel_id": "TX-441-12345",
+      "triage_priority": 1,
+      "storm_impact_score": 0.87,
+      "roof_condition_delta": -0.34,
+      "debris_detected": true
+    }
+  ]
+}
+```
+
+## Pricing
+
+- **Per-Event:** $2,000 - $10,000 (covers 5k-20k parcels)
+- **Subscription:** $500/month (up to 2 events/month)
+
+See [HomeScope documentation](/products/homescope) for integration details.

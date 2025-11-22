@@ -1,0 +1,709 @@
+---
+title: "Docker Compose Setup"
+description: "Local development environment with all platform services"
+---
+
+## Overview
+
+This Docker Compose configuration provides a complete local development environment for the Evoteli. It includes all core services with production-equivalent configurations.
+
+## Services
+
+### Core Infrastructure
+
+- **ClickHouse** (3 replicas) - Time-series database
+- **PostGIS** - Spatial database (PostgreSQL 15 + PostGIS 3.3)
+- **Valkey** - Redis-compatible cache
+- **Kafka + Zookeeper** (3 brokers) - Message queue
+- **Keycloak** - OAuth 2.0 authentication
+- **SeaweedFS** - S3-compatible object storage
+
+### Observability
+
+- **Prometheus** - Metrics collection
+- **Apache Superset** - Dashboards and visualization
+- **OpenSearch** - Log aggregation
+- **Jaeger** - Distributed tracing
+
+### Application Services
+
+- **API Gateway** (FastAPI) - REST API
+- **Stream Processor** (Apache Flink) - Real-time processing
+- **Batch Processor** (Apache Airflow) - Scheduled jobs
+
+## Docker Compose File
+
+```yaml
+version: '3.8'
+
+services:
+  # ========================================
+  # DATABASES
+  # ========================================
+
+  clickhouse-01:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: clickhouse-01
+    hostname: clickhouse-01
+    ports:
+      - "8123:8123"  # HTTP
+      - "9000:9000"  # Native
+    volumes:
+      - clickhouse-01-data:/var/lib/clickhouse
+      - ./config/clickhouse/config.xml:/etc/clickhouse-server/config.xml
+      - ./config/clickhouse/users.xml:/etc/clickhouse-server/users.xml
+      - ./migrations/clickhouse:/docker-entrypoint-initdb.d
+    environment:
+      CLICKHOUSE_DB: geointel
+      CLICKHOUSE_USER: geointel
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-dev_password}
+    networks:
+      - geointel
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  clickhouse-02:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: clickhouse-02
+    hostname: clickhouse-02
+    ports:
+      - "8124:8123"
+      - "9001:9000"
+    volumes:
+      - clickhouse-02-data:/var/lib/clickhouse
+      - ./config/clickhouse/config.xml:/etc/clickhouse-server/config.xml
+      - ./config/clickhouse/users.xml:/etc/clickhouse-server/users.xml
+    environment:
+      CLICKHOUSE_DB: geointel
+      CLICKHOUSE_USER: geointel
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-dev_password}
+    networks:
+      - geointel
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  clickhouse-03:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: clickhouse-03
+    hostname: clickhouse-03
+    ports:
+      - "8125:8123"
+      - "9002:9000"
+    volumes:
+      - clickhouse-03-data:/var/lib/clickhouse
+      - ./config/clickhouse/config.xml:/etc/clickhouse-server/config.xml
+      - ./config/clickhouse/users.xml:/etc/clickhouse-server/users.xml
+    environment:
+      CLICKHOUSE_DB: geointel
+      CLICKHOUSE_USER: geointel
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-dev_password}
+    networks:
+      - geointel
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  postgis:
+    image: postgis/postgis:15-3.3
+    container_name: postgis
+    hostname: postgis
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgis-data:/var/lib/postgresql/data
+      - ./migrations/postgis:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_DB: geointel
+      POSTGRES_USER: geointel
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+    networks:
+      - geointel
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=postgis"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=256MB"
+
+  valkey:
+    image: valkey/valkey:7.2
+    container_name: valkey
+    hostname: valkey
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey-data:/data
+    command:
+      - "valkey-server"
+      - "--appendonly"
+      - "yes"
+      - "--maxmemory"
+      - "2gb"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
+    networks:
+      - geointel
+
+  # ========================================
+  # MESSAGE QUEUE
+  # ========================================
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    hostname: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+    networks:
+      - geointel
+
+  kafka-01:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka-01
+    hostname: kafka-01
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-01:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 2
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_LOG_RETENTION_HOURS: 168
+    volumes:
+      - kafka-01-data:/var/lib/kafka/data
+    networks:
+      - geointel
+    depends_on:
+      - zookeeper
+
+  kafka-02:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka-02
+    hostname: kafka-02
+    ports:
+      - "9093:9092"
+      - "29093:29092"
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-02:9092,PLAINTEXT_HOST://localhost:29093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 2
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_LOG_RETENTION_HOURS: 168
+    volumes:
+      - kafka-02-data:/var/lib/kafka/data
+    networks:
+      - geointel
+    depends_on:
+      - zookeeper
+
+  kafka-03:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka-03
+    hostname: kafka-03
+    ports:
+      - "9094:9092"
+      - "29094:29092"
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-03:9092,PLAINTEXT_HOST://localhost:29094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 2
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_LOG_RETENTION_HOURS: 168
+    volumes:
+      - kafka-03-data:/var/lib/kafka/data
+    networks:
+      - geointel
+    depends_on:
+      - zookeeper
+
+  # ========================================
+  # OBJECT STORAGE
+  # ========================================
+
+  seaweedfs-master:
+    image: chrislusf/seaweedfs:3.60
+    container_name: seaweedfs-master
+    hostname: seaweedfs-master
+    ports:
+      - "9333:9333"  # Master
+      - "19333:19333"  # Metrics
+    command: "master -ip=seaweedfs-master -mdir=/data"
+    volumes:
+      - seaweedfs-master:/data
+    networks:
+      - geointel
+
+  seaweedfs-volume:
+    image: chrislusf/seaweedfs:3.60
+    container_name: seaweedfs-volume
+    hostname: seaweedfs-volume
+    ports:
+      - "8080:8080"  # Volume
+      - "18080:18080"  # Metrics
+    command: "volume -mserver=seaweedfs-master:9333 -dir=/data -max=100"
+    volumes:
+      - seaweedfs-volume:/data
+    networks:
+      - geointel
+    depends_on:
+      - seaweedfs-master
+
+  seaweedfs-filer:
+    image: chrislusf/seaweedfs:3.60
+    container_name: seaweedfs-filer
+    hostname: seaweedfs-filer
+    ports:
+      - "8888:8888"  # Filer (S3-compatible)
+      - "18888:18888"  # Metrics
+    command: "filer -master=seaweedfs-master:9333"
+    volumes:
+      - seaweedfs-filer:/data
+    networks:
+      - geointel
+    depends_on:
+      - seaweedfs-master
+      - seaweedfs-volume
+
+  # ========================================
+  # AUTH
+  # ========================================
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:22.0
+    container_name: keycloak
+    hostname: keycloak
+    ports:
+      - "8180:8080"
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgis:5432/keycloak
+      KC_DB_USERNAME: geointel
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+      KC_HOSTNAME: localhost
+      KC_HTTP_ENABLED: true
+    command: start-dev
+    networks:
+      - geointel
+    depends_on:
+      - postgis
+
+  # ========================================
+  # OBSERVABILITY
+  # ========================================
+
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: prometheus
+    hostname: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+    networks:
+      - geointel
+
+  superset:
+    image: apache/superset:3.0.0
+    container_name: superset
+    hostname: superset
+    ports:
+      - "8088:8088"
+    environment:
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-dev_secret_key_please_change}
+      SUPERSET_LOAD_EXAMPLES: "yes"
+    volumes:
+      - superset-data:/app/superset_home
+    networks:
+      - geointel
+    command: >
+      bash -c "superset db upgrade &&
+               superset fab create-admin --username admin --firstname Admin --lastname User --email admin@evoteli.com --password admin &&
+               superset init &&
+               superset run -h 0.0.0.0 -p 8088 --with-threads --reload"
+
+  opensearch:
+    image: opensearchproject/opensearch:2.10.0
+    container_name: opensearch
+    hostname: opensearch
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    environment:
+      discovery.type: single-node
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+      DISABLE_SECURITY_PLUGIN: true
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    networks:
+      - geointel
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.50
+    container_name: jaeger
+    hostname: jaeger
+    ports:
+      - "5775:5775/udp"
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "5778:5778"
+      - "16686:16686"  # UI
+      - "14268:14268"
+      - "14250:14250"
+      - "9411:9411"
+    environment:
+      COLLECTOR_ZIPKIN_HOST_PORT: ":9411"
+    networks:
+      - geointel
+
+  # ========================================
+  # APPLICATION SERVICES
+  # ========================================
+
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    hostname: api-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      CLICKHOUSE_HOST: clickhouse-01
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: geointel
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-dev_password}
+      CLICKHOUSE_DB: geointel
+      POSTGRES_HOST: postgis
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: geointel
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+      POSTGRES_DB: geointel
+      VALKEY_HOST: valkey
+      VALKEY_PORT: 6379
+      KEYCLOAK_URL: http://keycloak:8080
+      JAEGER_AGENT_HOST: jaeger
+      JAEGER_AGENT_PORT: 6831
+    volumes:
+      - ./services/api-gateway:/app
+    networks:
+      - geointel
+    depends_on:
+      - clickhouse-01
+      - postgis
+      - valkey
+      - keycloak
+      - jaeger
+
+  stream-processor:
+    build:
+      context: ./services/stream-processor
+      dockerfile: Dockerfile
+    container_name: stream-processor
+    hostname: stream-processor
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka-01:9092,kafka-02:9092,kafka-03:9092
+      CLICKHOUSE_HOST: clickhouse-01
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: geointel
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-dev_password}
+      CLICKHOUSE_DB: geointel
+    volumes:
+      - ./services/stream-processor:/app
+    networks:
+      - geointel
+    depends_on:
+      - kafka-01
+      - kafka-02
+      - kafka-03
+      - clickhouse-01
+
+  batch-processor:
+    build:
+      context: ./services/batch-processor
+      dockerfile: Dockerfile
+    container_name: batch-processor
+    hostname: batch-processor
+    ports:
+      - "8081:8080"
+    environment:
+      POSTGRES_HOST: postgis
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: geointel
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+      POSTGRES_DB: geointel
+      CLICKHOUSE_HOST: clickhouse-01
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: geointel
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-dev_password}
+      CLICKHOUSE_DB: geointel
+    volumes:
+      - ./services/batch-processor:/app
+    networks:
+      - geointel
+    depends_on:
+      - postgis
+      - clickhouse-01
+
+networks:
+  geointel:
+    driver: bridge
+
+volumes:
+  clickhouse-01-data:
+  clickhouse-02-data:
+  clickhouse-03-data:
+  postgis-data:
+  valkey-data:
+  zookeeper-data:
+  zookeeper-log:
+  kafka-01-data:
+  kafka-02-data:
+  kafka-03-data:
+  seaweedfs-master:
+  seaweedfs-volume:
+  seaweedfs-filer:
+  prometheus-data:
+  superset-data:
+  opensearch-data:
+```
+
+## Environment Variables
+
+Create a `.env` file in the project root:
+
+```bash
+# Database Passwords
+CLICKHOUSE_PASSWORD=secure_password_here
+POSTGRES_PASSWORD=secure_password_here
+
+# Keycloak
+KEYCLOAK_ADMIN_PASSWORD=secure_admin_password
+
+# Superset
+SUPERSET_SECRET_KEY=generate_random_secret_key_here
+
+# Application
+ENV=development
+LOG_LEVEL=INFO
+```
+
+## Quick Start
+
+```bash
+# Clone repository
+git clone https://github.com/evoteli/geo-intelligence-platform
+cd geo-intelligence-platform
+
+# Create .env file
+cp .env.example .env
+# Edit .env with your passwords
+
+# Start all services
+docker-compose up -d
+
+# Check service health
+docker-compose ps
+
+# View logs
+docker-compose logs -f api-gateway
+
+# Stop all services
+docker-compose down
+
+# Stop and remove volumes (CAUTION: deletes all data)
+docker-compose down -v
+```
+
+## Service URLs
+
+Once started, access services at:
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| API Gateway | http://localhost:8000 | OAuth token |
+| ClickHouse | http://localhost:8123 | geointel / ${CLICKHOUSE_PASSWORD} |
+| PostGIS | postgresql://localhost:5432/geointel | geointel / ${POSTGRES_PASSWORD} |
+| Valkey | redis://localhost:6379 | - |
+| Keycloak | http://localhost:8180 | admin / ${KEYCLOAK_ADMIN_PASSWORD} |
+| Prometheus | http://localhost:9090 | - |
+| Superset | http://localhost:8088 | admin / admin |
+| OpenSearch | http://localhost:9200 | - |
+| Jaeger UI | http://localhost:16686 | - |
+| SeaweedFS Filer | http://localhost:8888 | - |
+
+## Health Checks
+
+```bash
+# Check ClickHouse
+curl http://localhost:8123/ping
+
+# Check PostGIS
+docker-compose exec postgis psql -U geointel -d geointel -c "SELECT PostGIS_Version();"
+
+# Check Valkey
+docker-compose exec valkey valkey-cli ping
+
+# Check Kafka
+docker-compose exec kafka-01 kafka-topics --bootstrap-server localhost:9092 --list
+
+# Check API Gateway
+curl http://localhost:8000/health
+```
+
+## Initialize Kafka Topics
+
+```bash
+# Create topics
+docker-compose exec kafka-01 kafka-topics --create \
+  --bootstrap-server localhost:9092 \
+  --replication-factor 2 \
+  --partitions 12 \
+  --topic signals.raw
+
+docker-compose exec kafka-01 kafka-topics --create \
+  --bootstrap-server localhost:9092 \
+  --replication-factor 2 \
+  --partitions 12 \
+  --topic signals.processed
+
+docker-compose exec kafka-01 kafka-topics --create \
+  --bootstrap-server localhost:9092 \
+  --replication-factor 2 \
+  --partitions 6 \
+  --topic alerts.triggered
+
+# List topics
+docker-compose exec kafka-01 kafka-topics --bootstrap-server localhost:9092 --list
+```
+
+## Resource Requirements
+
+Minimum for local development:
+
+- **RAM:** 16 GB
+- **CPU:** 4 cores
+- **Disk:** 50 GB (SSD recommended)
+
+Production-like local environment:
+
+- **RAM:** 32 GB
+- **CPU:** 8 cores
+- **Disk:** 100 GB SSD
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="ClickHouse Won't Start">
+    **Symptom:** ClickHouse containers exit immediately
+
+    **Solution:**
+    ```bash
+    # Check ulimit settings
+    docker-compose logs clickhouse-01
+
+    # Increase file descriptor limits on host
+    ulimit -n 262144
+
+    # Or add to docker-compose.yml:
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    ```
+  </Accordion>
+
+  <Accordion title="Kafka Broker Not Connecting">
+    **Symptom:** Connection refused to Kafka brokers
+
+    **Solution:**
+    ```bash
+    # Check Zookeeper is running
+    docker-compose logs zookeeper
+
+    # Restart Kafka brokers
+    docker-compose restart kafka-01 kafka-02 kafka-03
+
+    # Verify broker registration
+    docker-compose exec zookeeper zookeeper-shell localhost:2181 ls /brokers/ids
+    ```
+  </Accordion>
+
+  <Accordion title="PostGIS Extension Missing">
+    **Symptom:** `ERROR: could not open extension control file`
+
+    **Solution:**
+    ```bash
+    # Create PostGIS extension
+    docker-compose exec postgis psql -U geointel -d geointel -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+    docker-compose exec postgis psql -U geointel -d geointel -c "CREATE EXTENSION IF NOT EXISTS postgis_topology;"
+    ```
+  </Accordion>
+
+  <Accordion title="Out of Memory">
+    **Symptom:** Services crashing with OOM errors
+
+    **Solution:**
+    ```bash
+    # Reduce service memory limits in docker-compose.yml
+    services:
+      clickhouse-01:
+        deploy:
+          resources:
+            limits:
+              memory: 2G
+
+      # Or stop unnecessary services for local dev
+      docker-compose up -d clickhouse-01 postgis valkey api-gateway
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Database Migrations" icon="database" href="/deployment/migrations">
+    Initialize ClickHouse and PostGIS schemas
+  </Card>
+  <Card title="API Gateway Setup" icon="code" href="/implementation/serving">
+    Configure and run the FastAPI gateway
+  </Card>
+  <Card title="Edge Devices" icon="microchip" href="/deployment/edge-devices">
+    Set up Jetson Orin Nano devices
+  </Card>
+  <Card title="Observability" icon="chart-mixed" href="/deployment/observability">
+    Configure monitoring dashboards
+  </Card>
+</CardGroup>

@@ -1,89 +1,130 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Evoteli",
+  "description": "Market Intelligence Platform - Fusing computer vision, satellite imagery, and geospatial data for decision-grade signals",
+  "theme": "dark",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#10b981",
+    "light": "#34d399",
+    "dark": "#059669"
   },
   "favicon": "/favicon.svg",
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Overview",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
               "index",
               "quickstart",
-              "development"
+              "architecture",
+              "mvp-roadmap"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Technical Stack",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "tech-stack",
+              "map-interface",
+              "commercial-safe-stack",
+              "license-analysis"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Development",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "hybrid-development-plan",
+              "design-system",
+              "development-plan",
+              "implementation-roadmap",
+              "implementation-summary"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Core Concepts",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "concepts/signals-and-metrics",
+              "concepts/data-model",
+              "concepts/provenance-quality"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Products",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Commercial Intelligence",
             "pages": [
-              "api-reference/introduction"
+              "products/lotwatch",
+              "products/tradezone-ai",
+              "products/geopulse",
+              "products/surgeradar",
+              "products/permitscope"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Residential Intelligence",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "products/homescope",
+              "products/roofiq",
+              "products/solarfit",
+              "products/driveway-pro",
+              "products/stormshield"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Signal API",
+            "pages": [
+              "api-reference/introduction",
+              "api-reference/authentication",
+              "api-reference/signals-query",
+              "api-reference/alerts",
+              "api-reference/audiences",
+              "api-reference/earth-engine",
+              "api-reference/provenance"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Implementation",
+        "groups": [
+          {
+            "group": "Architecture",
+            "pages": [
+              "implementation/edge-processing",
+              "implementation/api-scaffolding"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/docker-compose",
+              "deployment/migrations",
+              "deployment/ci-cd"
             ]
           }
         ]
       }
     ],
     "global": {
-      "anchors": [
+      "links": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "label": "API Status",
+          "href": "https://status.evoteli.com",
+          "icon": "signal"
         },
         {
-          "anchor": "Community",
-          "href": "https://mintlify.com/community",
-          "icon": "slack"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "label": "GitHub",
+          "href": "https://github.com/evoteli",
+          "icon": "github"
         }
       ]
     }
@@ -96,32 +137,19 @@
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "mailto:support@evoteli.com"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "label": "Get Started",
+      "href": "/quickstart"
     }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/evoteli",
+      "twitter": "https://twitter.com/evoteli"
     }
   }
 }

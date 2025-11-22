@@ -1,33 +1,229 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: "API Introduction"
+description: "REST API for querying signals, creating alerts, exporting audiences, and triggering analyses"
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+## Overview
 
-## Welcome
+The Evoteli exposes a **RESTful JSON API** for querying time-series signals, creating alerts, exporting audiences, and triggering Earth Engine tasks.
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+## Base URL
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+```
+https://api.evoteli.com/v1
+```
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+All API requests require an **OAuth 2.0 Bearer Token** obtained via your client credentials.
+
+### Obtaining a Token
+
+```bash
+curl -X POST https://auth.evoteli.com/oauth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=$CLIENT_ID" \
+  -d "client_secret=$CLIENT_SECRET"
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+```
+
+### Using the Token
+
+Include the token in the `Authorization` header:
+
+```bash
+curl -X POST https://api.evoteli.com/v1/signals:query \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ ... }'
+```
+
+## API Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Signals Query" icon="chart-line" href="/api-reference/signals-query">
+    Query time-series metrics with spatial and temporal filters
+  </Card>
+  <Card title="Alerts" icon="bell" href="/api-reference/alerts">
+    Create threshold and anomaly-based alerts
+  </Card>
+  <Card title="Audiences" icon="users" href="/api-reference/audiences">
+    Export filtered audiences to ad platforms
+  </Card>
+  <Card title="Earth Engine" icon="earth-americas" href="/api-reference/earth-engine">
+    Trigger insolation, NDVI, and DEM analyses
+  </Card>
+  <Card title="Provenance" icon="fingerprint" href="/api-reference/provenance">
+    Fetch source attribution and model lineage
+  </Card>
+</CardGroup>
+
+## Rate Limits
+
+| Tier | Requests per Minute | Burst |
+|------|---------------------|-------|
+| Starter | 60 | 100 |
+| Growth | 300 | 500 |
+| Enterprise | 1000 | 2000 |
+
+**Rate Limit Headers:**
+```
+X-RateLimit-Limit: 300
+X-RateLimit-Remaining: 287
+X-RateLimit-Reset: 1699296000
+```
+
+## Error Handling
+
+All errors return standard HTTP status codes with JSON bodies:
+
+**Example Error Response:**
+```json
+{
+  "error": {
+    "code": "INVALID_REQUEST",
+    "message": "Missing required parameter: site_id or polygon_id",
+    "details": {
+      "param": "site_id",
+      "suggestion": "Provide at least one of: site_id, polygon_id"
+    }
+  }
+}
+```
+
+### Common Error Codes
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `INVALID_REQUEST` | 400 | Malformed request or missing parameters |
+| `UNAUTHORIZED` | 401 | Invalid or expired token |
+| `FORBIDDEN` | 403 | Insufficient permissions |
+| `NOT_FOUND` | 404 | Resource not found |
+| `RATE_LIMIT_EXCEEDED` | 429 | Too many requests |
+| `INTERNAL_ERROR` | 500 | Server error |
+
+## Pagination
+
+List endpoints support cursor-based pagination:
+
+**Request:**
+```bash
+GET /sites?limit=100&cursor=eyJpZCI6MTIzNH0
+```
+
+**Response:**
+```json
+{
+  "data": [ ... ],
+  "next_cursor": "eyJpZCI6MTMzNH0",
+  "has_more": true
+}
+```
+
+## Data Types
+
+### Timestamps
+
+All timestamps use **ISO 8601 format** in UTC:
+
+```
+2025-11-06T14:30:00Z
+```
+
+### Geometries
+
+Polygons and points use **GeoJSON** format (SRID 4326):
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+{
+  "type": "Polygon",
+  "coordinates": [[
+    [-84.3880, 33.7490],
+    [-84.3870, 33.7490],
+    [-84.3870, 33.7480],
+    [-84.3880, 33.7480],
+    [-84.3880, 33.7490]
+  ]]
+}
 ```
+
+## Versioning
+
+The API uses URL-based versioning (`/v1`, `/v2`). Breaking changes will increment the major version. Deprecated endpoints will be supported for at least 12 months.
+
+## SDKs
+
+<CardGroup cols={3}>
+  <Card title="Python" icon="python">
+    ```bash
+    pip install geointel-sdk
+    ```
+  </Card>
+  <Card title="Node.js" icon="node-js">
+    ```bash
+    npm install @geointel/sdk
+    ```
+  </Card>
+  <Card title="Go" icon="golang">
+    ```bash
+    go get github.com/geointel/sdk-go
+    ```
+  </Card>
+</CardGroup>
+
+## Quickstart Example
+
+**Python:**
+```python
+from geointel import Client
+
+client = Client(
+    client_id="your_client_id",
+    client_secret="your_client_secret"
+)
+
+# Query occupancy for last 24 hours
+response = client.signals.query(
+    site_id="ATL-CTF-001",
+    metrics=["occupancy", "queue_len"],
+    time_from="2025-11-05T00:00:00Z",
+    time_to="2025-11-06T00:00:00Z",
+    rollup="15m"
+)
+
+for row in response.rows:
+    print(f"{row.ts}: {row.metric}={row.value} ({row.unit})")
+```
+
+## Support
+
+- **Documentation:** https://docs.evoteli.com
+- **API Status:** https://status.evoteli.com
+- **Support Email:** support@evoteli.com
+- **GitHub Issues:** https://github.com/geointel/sdk-python/issues
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Query Signals" icon="magnifying-glass-chart" href="/api-reference/signals-query">
+    Learn how to query time-series metrics
+  </Card>
+  <Card title="Create Alerts" icon="bell-on" href="/api-reference/alerts">
+    Set up threshold and anomaly alerts
+  </Card>
+  <Card title="Export Audiences" icon="file-export" href="/api-reference/audiences">
+    Generate audience exports for ad platforms
+  </Card>
+  <Card title="Authentication Guide" icon="key" href="/api-reference/authentication">
+    Deep dive into OAuth 2.0 authentication
+  </Card>
+</CardGroup>

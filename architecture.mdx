@@ -1,0 +1,282 @@
+---
+title: "Platform Architecture"
+description: "Edge, stream, and batch processing architecture for decision-grade geo-intelligence"
+---
+
+## Overview
+
+The Evoteli uses a **hybrid architecture** combining:
+- **Edge processing** for real-time computer vision with privacy-preserving redaction
+- **Stream processing** for sub-10-second metric ingestion and aggregation
+- **Batch processing** for satellite/aerial imagery analysis and Earth Engine tasks
+- **Serving layer** for low-latency API queries with caching
+
+## Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                           EDGE LAYER                                │
+│  ┌──────────────┐      ┌──────────────┐      ┌──────────────┐     │
+│  │ Camera Feed  │─────▶│ YOLO Detector│─────▶│  Redaction   │     │
+│  │ RTSP/WebRTC  │      │  + ByteTrack │      │ (Face/Plate) │     │
+│  └──────────────┘      └──────────────┘      └──────┬───────┘     │
+│                                                       │             │
+│                                                       ▼             │
+│                                              ┌──────────────┐      │
+│                                              │ MQTT/gRPC    │      │
+│                                              │ Publisher    │      │
+│                                              └──────┬───────┘      │
+└─────────────────────────────────────────────────────┼──────────────┘
+                                                      │
+┌─────────────────────────────────────────────────────┼──────────────┐
+│                        STREAM LAYER                 │              │
+│                                                      ▼              │
+│  ┌──────────────┐      ┌──────────────┐      ┌──────────────┐    │
+│  │   GStreamer  │─────▶│    Kafka     │─────▶│ Beam/Flink   │    │
+│  │   Ingest     │      │   Messages   │      │  Processing  │    │
+│  └──────────────┘      └──────────────┘      └──────┬───────┘    │
+│                                                       │            │
+│                                                       ▼            │
+│                                              ┌──────────────┐     │
+│                                              │ ClickHouse   │     │
+│                                              │ Time-Series  │     │
+│                                              └──────────────┘     │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│                         BATCH LAYER                              │
+│  ┌──────────────┐      ┌──────────────┐      ┌──────────────┐  │
+│  │   Dagster    │─────▶│ Raster-Vision│─────▶│   PostGIS    │  │
+│  │ Orchestrator │      │ ChangeFormer │      │   Polygons   │  │
+│  └──────────────┘      └──────────────┘      └──────────────┘  │
+│         │                                                        │
+│         ▼                                                        │
+│  ┌──────────────┐                                               │
+│  │ Earth Engine │                                               │
+│  │    Tasks     │                                               │
+│  └──────────────┘                                               │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│                        SERVING LAYER                             │
+│  ┌──────────────┐      ┌──────────────┐      ┌──────────────┐  │
+│  │    Triton    │─────▶│   FastAPI    │─────▶│   Clients    │  │
+│  │  TorchServe  │      │   Gateway    │      │   (REST)     │  │
+│  └──────────────┘      └──────────────┘      └──────────────┘  │
+│                               │                                  │
+│                               ▼                                  │
+│                        ┌──────────────┐                         │
+│                        │ Redis Cache  │                         │
+│                        └──────────────┘                         │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+## Components
+
+### Edge Processing
+
+**Purpose:** Real-time computer vision with privacy-by-design
+
+**Stack:**
+- **Hardware:** NVIDIA Jetson (AGX/Orin), Google Coral, or CPU-based
+- **Detection:** YOLO11n/YOLOv8 (Apache-2.0)
+- **Tracking:** ByteTrack (MIT)
+- **Redaction:** OpenCV + InsightFace blur/masking
+- **Transport:** MQTT (Eclipse Mosquitto) or gRPC
+
+**Metrics Produced:**
+- `occupancy` (count)
+- `queue_len` (count)
+- `dwell_median` (seconds)
+- `turnover_rate` (vehicles/hour)
+
+**Performance:**
+- Inference: 10-30 FPS on Jetson AGX
+- Lag: <5 seconds from frame capture to publish
+
+[Learn more →](/implementation/edge-processing)
+
+### Stream Processing
+
+**Purpose:** Ingest, validate, and aggregate metrics in real-time
+
+**Stack:**
+- **Ingestion:** GStreamer (camera streams), MQTT subscribers
+- **Messaging:** Apache Kafka (event streams)
+- **Processing:** Apache Beam (batch + stream) or Apache Flink
+- **Storage:** ClickHouse (time-series metrics)
+
+**Features:**
+- 5-minute, 15-minute, 1-hour, 1-day rollups
+- Quality score computation (0-1)
+- Provenance attachment (source, model version, license)
+
+**Performance:**
+- End-to-end lag: <10 seconds
+- Throughput: 10k events/sec per node
+
+[Learn more →](/implementation/stream-processing)
+
+### Batch Processing
+
+**Purpose:** Satellite/aerial imagery analysis and Earth Engine computations
+
+**Stack:**
+- **Orchestration:** Dagster (workflow scheduler)
+- **Change Detection:** Raster-Vision + ChangeFormer
+- **Geospatial:** PostGIS (polygons), GeoPandas, Rasterio
+- **Earth Engine:** Google Earth Engine API (insolation, NDVI, DEM)
+
+**Metrics Produced:**
+- `roof_condition` (0-1 score)
+- `solar_score` (0-1 suitability)
+- `construction_delta` (change percentage)
+- `impervious_pct` (percentage)
+
+**Cadence:**
+- Satellite: Weekly (where licensed)
+- Earth Engine: On-demand or scheduled
+
+[Learn more →](/implementation/batch-processing)
+
+### Serving Layer
+
+**Purpose:** Low-latency API queries with caching
+
+**Stack:**
+- **Model Serving:** NVIDIA Triton or TorchServe
+- **API Gateway:** FastAPI (Python 3.10+)
+- **Cache:** Redis (query results, 5-15 min TTL)
+- **Load Balancing:** NGINX or cloud-native LB
+
+**Endpoints:**
+- `POST /signals:query` - Query time-series metrics
+- `POST /alerts.create` - Create threshold/anomaly alerts
+- `POST /audiences.export` - Generate audience exports
+- `POST /earthengine.task` - Trigger Earth Engine analysis
+- `GET /provenance/{metric_id}` - Fetch metric provenance
+
+**Performance:**
+- p95 latency: <800ms (cached), <2.5s (cold)
+- Concurrency: 1000 req/sec per instance
+
+[Learn more →](/implementation/serving)
+
+## Storage
+
+### Time-Series Metrics (ClickHouse)
+
+**Schema:**
+```sql
+CREATE TABLE signals_timeseries (
+  site_id String,
+  polygon_id Nullable(String),
+  ts DateTime64(3),
+  metric LowCardinality(String),
+  value Float64,
+  unit LowCardinality(String),
+  method Enum('edge_cv', 'sat_change', 'aerial_oblique', 'mobile_panel', 'fused'),
+  quality_score Float32,
+  provenance String -- JSON: {sources, imagery_license_id, model_version}
+) ENGINE = MergeTree()
+PARTITION BY toYYYYMM(ts)
+ORDER BY (site_id, metric, ts);
+```
+
+**Retention:** 90 days (raw site-level), 365 days (aggregates)
+
+### Spatial Data (PostGIS)
+
+**Tables:**
+- `sites` - Store/location metadata with polygons (SRID 4326)
+- `polygons` - Parcel/lot geometries
+- `model_inferences` - Segmentation masks, bounding boxes
+
+### Object Storage
+
+- **Tiles:** Satellite/aerial imagery tiles (GeoTIFF)
+- **Artifacts:** Model checkpoints, inference results
+- **Storage:** S3/GCS/MinIO with lifecycle policies (30-90 day retention)
+
+[Learn more →](/implementation/storage)
+
+## Observability
+
+### Metrics
+- **Prometheus** - Resource utilization, inference latency, stream lag
+- **Grafana** - Dashboards for ops, SLIs, SLOs
+
+### Traces
+- **OpenTelemetry** - Distributed tracing across edge → stream → API
+
+### Data Quality
+- **Great Expectations** - Schema validation, null checks, range checks
+- **Evidently** - Model drift detection, data drift alerts
+
+[Learn more →](/deployment/observability)
+
+## Scaling Considerations
+
+### Edge
+- **Horizontal:** Deploy multiple edge devices per site for redundancy
+- **Vertical:** Use Jetson AGX for 4+ camera streams per device
+
+### Stream
+- **Kafka partitioning:** Partition by `site_id` for parallelism
+- **Flink parallelism:** Scale workers based on event throughput
+
+### Batch
+- **Spot instances:** Use preemptible VMs for cost-efficient satellite processing
+- **Regional caching:** Cache Earth Engine tiles in regional buckets
+
+### Serving
+- **Read replicas:** ClickHouse replicas for query load balancing
+- **CDN caching:** Cache static API responses at edge (CloudFlare, Fastly)
+
+## Security
+
+- **Encryption:** TLS 1.3 in transit, AES-256 at rest
+- **Authentication:** OAuth 2.0 + OIDC (SSO)
+- **Authorization:** RBAC (role-based) + ABAC (attribute-based)
+- **Audit:** Immutable logs in separate audit DB
+- **Network:** VPC isolation, private endpoints, no public IPs for data stores
+
+## Disaster Recovery
+
+- **RPO:** ≤1 hour (Recovery Point Objective)
+- **RTO:** ≤4 hours (Recovery Time Objective)
+- **Backups:** Daily ClickHouse snapshots, weekly PostGIS dumps
+- **Multi-region:** Optional active-passive setup for tier-1 customers
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Edge Processing"
+    icon="microchip"
+    href="/implementation/edge-processing"
+  >
+    Deep dive into camera ingestion, detection, and redaction.
+  </Card>
+  <Card
+    title="Stream Processing"
+    icon="water"
+    href="/implementation/stream-processing"
+  >
+    Learn about Kafka, Beam/Flink, and ClickHouse integration.
+  </Card>
+  <Card
+    title="Batch Processing"
+    icon="satellite"
+    href="/implementation/batch-processing"
+  >
+    Explore satellite change detection and Earth Engine tasks.
+  </Card>
+  <Card
+    title="Deployment Guide"
+    icon="rocket"
+    href="/deployment/infrastructure"
+  >
+    Deploy the platform on AWS, GCP, or on-premises.
+  </Card>
+</CardGroup>

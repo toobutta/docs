@@ -1,0 +1,265 @@
+---
+title: "LotWatch"
+description: "Real-time parking, drive-thru, and curbside analytics"
+---
+
+## Overview
+
+**LotWatch** provides real-time vehicle detection and tracking for parking lots, drive-thru lanes, and curbside pickup zones. Monitor occupancy, queue lengths, service times, and traffic patterns to optimize operations and staffing.
+
+## Key Metrics
+
+<CardGroup cols={2}>
+  <Card title="Occupancy">
+    Current number of vehicles in the monitored zone
+    - **Unit:** count
+    - **Cadence:** 5-60 seconds
+    - **Method:** edge_cv
+  </Card>
+  <Card title="Queue Length">
+    Number of vehicles waiting in drive-thru or pickup lane
+    - **Unit:** count
+    - **Cadence:** 5-60 seconds
+    - **Method:** edge_cv
+  </Card>
+  <Card title="Dwell Time (Median)">
+    Median time vehicles spend in the zone
+    - **Unit:** seconds
+    - **Cadence:** 15-minute rollup
+    - **Method:** edge_cv
+  </Card>
+  <Card title="Turnover Rate">
+    Vehicles entering/exiting per hour
+    - **Unit:** vehicles/hour
+    - **Cadence:** 1-hour rollup
+    - **Method:** edge_cv
+  </Card>
+  <Card title="Service Time (p50/p95)">
+    Percentile service times at drive-thru window
+    - **Unit:** seconds
+    - **Cadence:** 15-minute rollup
+    - **Method:** edge_cv
+  </Card>
+  <Card title="Peak Hour Detection">
+    Identifies consistent traffic patterns
+    - **Unit:** timestamp
+    - **Cadence:** daily
+    - **Method:** fused
+  </Card>
+</CardGroup>
+
+## Use Cases
+
+### 1. Drive-Thru Queue Management
+
+Monitor queue length in real-time and receive alerts when thresholds are exceeded.
+
+**Alert Example:**
+```json
+{
+  "type": "queue_len_breach",
+  "site_id": "ATL-CTF-001",
+  "queue_len": 9,
+  "duration_min": 12,
+  "threshold": 7,
+  "recommendation": "Add 2 staff; trigger 2-4pm 10% drink promo",
+  "quality_score": 0.79
+}
+```
+
+**ROI Impact:**
+- Reduce average wait time by 10-20%
+- Increase throughput during peak hours by 8-15%
+- Prevent customer abandonment (estimated 5-10% at queue_len > 8)
+
+### 2. Competitor Benchmarking
+
+Compare your location's occupancy and service times against nearby competitors.
+
+**Lunch Index (11:00-14:00):**
+```
+Brand A Median Occupancy: 18 vehicles
+Brand B Median Occupancy: 24 vehicles
+Competitor Index: 1.33 (Brand B attracting 33% more traffic)
+```
+
+**Action:** Trigger alert when index > 1.3 for 2+ consecutive weeks.
+
+### 3. Parking Lot Utilization
+
+Track parking occupancy to determine optimal lot sizing and overflow handling.
+
+**Metrics:**
+- Average occupancy by day-of-week and hour
+- Peak occupancy events (>90% capacity)
+- Turnover rate (ideal: 8-12 vehicles/hour for QSR)
+
+## Technical Implementation
+
+### Edge Device Setup
+
+**Hardware Options:**
+- **NVIDIA Jetson Orin Nano:** 1-2 cameras, 15-20 FPS
+- **NVIDIA Jetson AGX Orin:** 4-8 cameras, 20-30 FPS
+- **Google Coral Dev Board:** 1 camera, 10-15 FPS (lower cost)
+
+**Model:**
+- YOLO11n or YOLOv8n (vehicle detection)
+- ByteTrack (multi-object tracking)
+
+**Privacy:**
+- On-device face/plate blur before transmission
+- No raw video stored or transmitted
+
+[See edge deployment guide →](/deployment/edge-devices)
+
+### Camera Placement
+
+**Drive-Thru Lane:**
+- **Overhead view:** Covers ordering station to pickup window
+- **Field of view:** 20-30 meters
+- **Height:** 4-6 meters
+
+**Parking Lot:**
+- **Elevated view:** Overlooks 30-50 parking spaces
+- **Multiple cameras:** For lots >100 spaces
+- **Coverage:** Aim for 80%+ lot visibility
+
+### Data Flow
+
+```
+Camera (RTSP) → Edge Device (YOLO + Redaction)
+  → MQTT Publish → Kafka → Beam Processing
+  → ClickHouse → Signal API
+```
+
+**Latency:**
+- Frame to detection: <200ms
+- Detection to MQTT: <1s
+- End-to-end to API: <10s
+
+## API Query Example
+
+**Query 15-minute occupancy rollup for last 24 hours:**
+
+```bash
+curl -X POST https://api.evoteli.com/signals:query \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "site_id": "ATL-CTF-001",
+    "metrics": ["occupancy", "queue_len"],
+    "time_from": "2025-11-05T00:00:00Z",
+    "time_to": "2025-11-06T00:00:00Z",
+    "rollup": "15m"
+  }'
+```
+
+**Response:**
+```json
+{
+  "rows": [
+    {
+      "ts": "2025-11-05T11:00:00Z",
+      "metric": "occupancy",
+      "value": 18.4,
+      "unit": "count",
+      "method": "edge_cv",
+      "quality_score": 0.82,
+      "provenance": {
+        "sources": ["edge_cam:cam1"],
+        "model_version": "yolo11n-2025.10"
+      }
+    },
+    {
+      "ts": "2025-11-05T11:00:00Z",
+      "metric": "queue_len",
+      "value": 5.2,
+      "unit": "count",
+      "method": "edge_cv",
+      "quality_score": 0.79,
+      "provenance": {
+        "sources": ["edge_cam:cam2"],
+        "model_version": "yolo11n-2025.10"
+      }
+    }
+  ]
+}
+```
+
+## Dashboard Widgets
+
+### Site Card (Real-Time)
+- **Current Occupancy:** 23 vehicles
+- **Current Queue:** 4 vehicles
+- **Median Dwell:** 3m 24s
+- **Quality Score:** 0.81
+- **Last Updated:** 2s ago
+
+### Benchmark Chart (Weekly)
+- Line chart: Your site vs. top 3 competitors
+- Metric: Lunch hour occupancy (11:00-14:00)
+- Annotations: Weather events, promotions
+
+### Heatmap (Daily)
+- X-axis: Hour of day (6am - 11pm)
+- Y-axis: Day of week
+- Color: Occupancy (green=low, red=high)
+
+## Pricing
+
+**Starter Tier:**
+- **Sites:** Up to 25
+- **Cadence:** 15-minute rollups
+- **Cameras:** 1-2 per site
+- **Cost:** $2,000 - $5,000/month
+
+**Growth Tier:**
+- **Sites:** Up to 250
+- **Cadence:** 1-5 minute rollups
+- **Cameras:** 2-4 per site
+- **Cost:** $15,000 - $40,000/month
+
+**Add-Ons:**
+- **Edge Hardware Kit:** $800 - $2,500 per device (one-time)
+- **Historical Backfill:** $500/month (6-12 months of historical data)
+
+## Compliance
+
+- **Privacy:** No raw video stored; on-device redaction
+- **Retention:** 90 days (site-level metrics), 365 days (aggregates)
+- **Opt-Out:** Support for customer opt-out registry
+- **Licensing:** First-party cameras (client-owned) or permitted feeds
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Deploy Edge Devices"
+    icon="microchip"
+    href="/deployment/edge-devices"
+  >
+    Install and configure Jetson/Coral devices for your sites.
+  </Card>
+  <Card
+    title="Query Signal API"
+    icon="code"
+    href="/api-reference/signals-query"
+  >
+    Learn how to query occupancy and queue metrics.
+  </Card>
+  <Card
+    title="Set Up Alerts"
+    icon="bell"
+    href="/api-reference/alerts"
+  >
+    Create threshold alerts for queue breaches.
+  </Card>
+  <Card
+    title="View Dashboards"
+    icon="chart-line"
+    href="/quickstart#dashboards"
+  >
+    Access pre-built Grafana/Looker dashboards.
+  </Card>
+</CardGroup>
