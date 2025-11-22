@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ValidationInfo
 from typing import Optional, List
 from datetime import datetime, date
 from decimal import Decimal
@@ -7,12 +7,15 @@ from uuid import UUID
 
 class PropertyFilters(BaseModel):
     """Filters for property search"""
+
     # Location filters
     city: Optional[str] = None
     state: Optional[str] = None
     zip: Optional[str] = None
     county: Optional[str] = None
-    bounds: Optional[List[float]] = Field(None, description="[west, south, east, north]")
+    bounds: Optional[List[float]] = Field(
+        None, description="[west, south, east, north]"
+    )
     territory: Optional[dict] = None  # GeoJSON Polygon
 
     # Property type
@@ -82,16 +85,19 @@ class SolarFitData(BaseModel):
     class Config:
         from_attributes = True
 
-    @validator('shading_analysis', pre=True, always=True)
-    def build_shading_analysis(cls, v, values):
+    @field_validator("shading_analysis", mode="before")
+    @classmethod
+    def build_shading_analysis(cls, v, info: ValidationInfo):
         """Build shading_analysis dict from individual fields"""
         if v is not None:
             return v
+        # In Pydantic v2, access other fields via info.data instead of the values parameter
+        values = info.data
         return {
-            'spring': values.get('shading_spring'),
-            'summer': values.get('shading_summer'),
-            'fall': values.get('shading_fall'),
-            'winter': values.get('shading_winter'),
+            "spring": values.get("shading_spring"),
+            "summer": values.get("shading_summer"),
+            "fall": values.get("shading_fall"),
+            "winter": values.get("shading_winter"),
         }
 
 

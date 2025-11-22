@@ -42,7 +42,12 @@ class Settings(BaseSettings):
     GOOGLE_ADS_CLIENT_ID: Optional[str] = None
     GOOGLE_ADS_CLIENT_SECRET: Optional[str] = None
     GOOGLE_ADS_DEVELOPER_TOKEN: Optional[str] = None
-    GOOGLE_ADS_REDIRECT_URI: str = "http://localhost:3000/settings/integrations/google-ads/callback"
+    GOOGLE_ADS_REDIRECT_URI: str = (
+        "http://localhost:3000/settings/integrations/google-ads/callback"
+    )
+    GOOGLE_ADS_SYNC_DELAY_SECONDS: int = (
+        5  # Delay before fetching user list stats after upload
+    )
 
     # Pagination
     DEFAULT_PAGE_SIZE: int = 100
