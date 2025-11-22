@@ -92,7 +92,9 @@ class SolarFitData(BaseModel):
         if v is not None:
             return v
         # In Pydantic v2, access other fields via info.data
-        values = info.data if hasattr(info, "data") else {}
+        if not hasattr(info, "data"):
+            return None
+        values = info.data
         return {
             "spring": values.get("shading_spring"),
             "summer": values.get("shading_summer"),
