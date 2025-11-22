@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ValidationInfo
 from typing import Optional, List
 from datetime import datetime, date
 from decimal import Decimal
@@ -87,12 +87,12 @@ class SolarFitData(BaseModel):
 
     @field_validator("shading_analysis", mode="before")
     @classmethod
-    def build_shading_analysis(cls, v, info):
+    def build_shading_analysis(cls, v, info: ValidationInfo):
         """Build shading_analysis dict from individual fields"""
         if v is not None:
             return v
         # In Pydantic v2, access other fields via info.data
-        if not hasattr(info, "data"):
+        if not info or not hasattr(info, "data"):
             return None
         values = info.data
         return {
