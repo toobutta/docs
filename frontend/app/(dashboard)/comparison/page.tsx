@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,7 +10,7 @@ import { ArrowLeftRight, TrendingUp } from 'lucide-react'
 
 export default function PropertyComparisonPage() {
   // Demo: compare first 3 properties
-  const [propertyIds] = useState<string[]>([])
+  const propertyIds = ['property1', 'property2', 'property3']
 
   const { data, isLoading } = useQuery({
     queryKey: ['property-comparison', propertyIds],

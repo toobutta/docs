@@ -3,6 +3,7 @@ Google Ads Background Tasks
 
 Celery tasks for syncing audiences to Google Ads Customer Match.
 """
+
 from datetime import datetime, timedelta
 from typing import Optional
 from sqlalchemy import select, and_
@@ -11,6 +12,7 @@ import logging
 
 from app.tasks.celery_app import celery_app
 from app.core.database import AsyncSessionLocal
+from app.core.config import settings
 from app.models.google_ads import (
     GoogleAdsAccount,
     CustomerMatchAudience,
@@ -27,6 +29,7 @@ logger = logging.getLogger(__name__)
 def sync_audience_to_google_ads(audience_id: str, sync_id: Optional[str] = None):
     """Sync audience to Google Ads Customer Match"""
     import asyncio
+
     return asyncio.run(_sync_audience_to_google_ads(audience_id, sync_id))
 
 
@@ -74,10 +77,15 @@ async def _sync_audience_to_google_ads(audience_id: str, sync_id: Optional[str] 
             await session.commit()
 
             # Refresh access token if needed
-            if account.token_expires_at and account.token_expires_at < datetime.utcnow():
+            if (
+                account.token_expires_at
+                and account.token_expires_at < datetime.utcnow()
+            ):
                 try:
-                    new_token, expires_at = await google_ads_service.refresh_access_token(
-                        account.refresh_token
+                    new_token, expires_at = (
+                        await google_ads_service.refresh_access_token(
+                            account.refresh_token
+                        )
                     )
                     account.access_token = new_token
                     account.token_expires_at = expires_at
@@ -89,19 +97,23 @@ async def _sync_audience_to_google_ads(audience_id: str, sync_id: Optional[str] 
             # Create user list in Google Ads if not exists
             if not audience.user_list_resource_name:
                 try:
-                    resource_name, user_list_id = await google_ads_service.create_customer_match_user_list(
-                        customer_id=account.customer_id,
-                        access_token=account.access_token,
-                        refresh_token=account.refresh_token,
-                        name=audience.name,
-                        description=audience.description or "",
+                    resource_name, user_list_id = (
+                        await google_ads_service.create_customer_match_user_list(
+                            customer_id=account.customer_id,
+                            access_token=account.access_token,
+                            refresh_token=account.refresh_token,
+                            name=audience.name,
+                            description=audience.description or "",
+                        )
                     )
 
                     audience.user_list_resource_name = resource_name
                     audience.user_list_id = user_list_id
                     await session.commit()
 
-                    logger.info(f"Created user list {resource_name} for audience {audience_id}")
+                    logger.info(
+                        f"Created user list {resource_name} for audience {audience_id}"
+                    )
 
                 except Exception as e:
                     logger.error(f"Failed to create user list: {str(e)}")
@@ -206,9 +218,10 @@ async def _sync_audience_to_google_ads(audience_id: str, sync_id: Optional[str] 
                     logger.error(f"Failed to upload contacts: {str(e)}")
                     raise
 
-            # Wait a bit then get stats from Google Ads
+            # Wait for Google Ads to process upload before fetching stats
             import asyncio
-            await asyncio.sleep(5)
+
+            await asyncio.sleep(settings.GOOGLE_ADS_SYNC_DELAY_SECONDS)
 
             try:
                 stats = await google_ads_service.get_user_list_stats(
@@ -276,6 +289,7 @@ async def _sync_audience_to_google_ads(audience_id: str, sync_id: Optional[str] 
 def process_auto_sync_audiences():
     """Process audiences with auto-sync enabled"""
     import asyncio
+
     return asyncio.run(_process_auto_sync_audiences())
 
 
